@@ -53,35 +53,37 @@ export const useFiles = () => {
     }
   });
 
-  const { data: file, isLoading: isLoadingFile, refetch: refetchFile } = useQuery({
-    queryKey: ['file'],
-    enabled: false, // This query won't run automatically
-    queryFn: async ({ queryKey }) => {
-      const [_, fileId] = queryKey;
-      if (!fileId) return null;
-      
-      const { data, error } = await supabase
-        .from('files')
-        .select('*')
-        .eq('id', fileId)
-        .single();
+  // Modify this query to accept a fileId parameter
+  const getFileById = (fileId?: string) => {
+    return useQuery({
+      queryKey: ['file', fileId],
+      enabled: !!fileId, // Only run when fileId is provided
+      queryFn: async () => {
+        if (!fileId) return null;
+        
+        const { data, error } = await supabase
+          .from('files')
+          .select('*')
+          .eq('id', fileId)
+          .single();
 
-      if (error) {
-        toast.error('Failed to fetch file');
-        throw error;
+        if (error) {
+          toast.error('Failed to fetch file');
+          throw error;
+        }
+
+        // Transform to match our File interface
+        return data ? {
+          ...data,
+          is_encrypted: !!data.encryption_key,
+          shared_with: data.shared_with || [],
+          upload_date: data.created_at ? new Date(data.created_at) : undefined,
+          expires: data.expires_at ? new Date(data.expires_at) : undefined,
+          tags: [] // Add default empty tags array
+        } : null;
       }
-
-      // Transform to match our File interface
-      return data ? {
-        ...data,
-        is_encrypted: !!data.encryption_key,
-        shared_with: data.shared_with || [],
-        upload_date: data.created_at ? new Date(data.created_at) : undefined,
-        expires: data.expires_at ? new Date(data.expires_at) : undefined,
-        tags: [] // Add default empty tags array
-      } : null;
-    }
-  });
+    });
+  };
 
   const deleteFile = useMutation({
     mutationFn: async (fileId: string) => {
@@ -130,11 +132,9 @@ export const useFiles = () => {
 
   return {
     files: files as File[],
-    file: file as File | null,
     isLoading,
-    isLoadingFile,
     deleteFile,
     updateFile,
-    refetchFile
+    getFileById
   };
 };

@@ -32,13 +32,8 @@ const FileView = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   
-  const { file, isLoadingFile, updateFile, refetchFile } = useFiles();
-  
-  useEffect(() => {
-    if (id) {
-      refetchFile({ queryKey: ['file', id] });
-    }
-  }, [id, refetchFile]);
+  const { updateFile } = useFiles();
+  const { data: file, isLoading: isLoadingFile } = useFiles().getFileById(id);
 
   const handleDownload = () => {
     toast.success("Download started");
