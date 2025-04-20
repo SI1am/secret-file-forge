@@ -8,7 +8,7 @@ import {
   Trash, 
   Eye, 
   Lock, 
-  Image,
+  ImageIcon, // Changed from Image to ImageIcon
   FileImage,
   File
 } from "lucide-react";
@@ -167,7 +167,7 @@ const FileCard = ({
             className="flex-1"
             onClick={() => onWatermark(file.id)}
           >
-            <Image className="h-4 w-4 mr-1" /> Watermark
+            <ImageIcon className="h-4 w-4 mr-1" /> Watermark
           </Button>
         )}
         

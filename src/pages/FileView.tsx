@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -9,7 +8,8 @@ import {
   Unlock, 
   Share2,
   Calendar,
-  FileText
+  FileText,
+  ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -54,16 +54,12 @@ const FileView = () => {
       setLoading(true);
       
       try {
-        // In a real implementation, this would fetch from Supabase
-        // For now, using mock data
-        
         if (!id) {
           toast.error("File not found");
           navigate("/vault");
           return;
         }
         
-        // Mock data for file details
         const fileData = {
           id,
           name: id.includes("image") ? "company-logo.png" : "confidential-report.xlsx",
@@ -115,7 +111,6 @@ const FileView = () => {
       return;
     }
     
-    // In a real implementation, this would update Supabase
     const updatedSharedWith = [...(file.sharedWith || []), shareEmail];
     setFile({...file, sharedWith: updatedSharedWith});
     
@@ -167,7 +162,7 @@ const FileView = () => {
           className="mt-6" 
           onClick={() => navigate("/vault")}
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-4 w-4" />
           Return to Vault
         </Button>
       </div>
@@ -243,7 +238,6 @@ const FileView = () => {
             <CardContent className="p-6">
               <div className="aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center">
                 {file.type.includes('image') ? (
-                  // Mock image display
                   <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                     <img 
                       src={`https://source.unsplash.com/random/800x600/?${file.name.split('.')[0]}`} 
@@ -252,7 +246,6 @@ const FileView = () => {
                     />
                   </div>
                 ) : (
-                  // File preview placeholder
                   <div className="text-center py-12">
                     <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
                     <p className="mt-4 text-sm text-muted-foreground">
@@ -500,7 +493,7 @@ const FileView = () => {
                 
                 {file.hasWatermark && (
                   <div className="flex items-center space-x-2 text-sm">
-                    <Image className="h-4 w-4 text-green-500" />
+                    <ImageIcon className="h-4 w-4 text-green-500" />
                     <span>Watermarked</span>
                   </div>
                 )}
