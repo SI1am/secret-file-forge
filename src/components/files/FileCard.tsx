@@ -14,21 +14,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { File as FileType } from "@/hooks/useFiles";
 
 interface FileCardProps {
-  file: {
-    id: string;
-    name: string;
-    size: number;
-    type: string;
-    created_at: string;
-    is_encrypted: boolean;
-    is_masked: boolean;
-    has_watermark: boolean;
-    shared_with?: string[];
-    tags?: string[];
-    upload_date?: Date;
-  };
+  file: FileType;
   onDelete: (id: string) => void;
   onView: (id: string) => void;
   onDownload: (id: string) => void;

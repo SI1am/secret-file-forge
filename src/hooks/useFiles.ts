@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from "sonner";
+import { Json } from '@/integrations/supabase/types';
 
 export interface File {
   id: string;
@@ -10,6 +11,7 @@ export interface File {
   type: string;
   created_at: string;
   encrypted_data: string;
+  encryption_key?: string; // Make this optional
   is_encrypted: boolean;
   is_masked: boolean;
   has_watermark: boolean;
@@ -19,6 +21,8 @@ export interface File {
   tags?: string[];
   upload_date?: Date;
   expires?: Date;
+  watermark_data?: Json;
+  masking_config?: Json;
 }
 
 export const useFiles = () => {
@@ -43,16 +47,19 @@ export const useFiles = () => {
         is_encrypted: !!file.encryption_key, // Determine is_encrypted based on encryption_key
         shared_with: file.shared_with || [],
         upload_date: file.created_at ? new Date(file.created_at) : undefined,
-        expires: file.expires_at ? new Date(file.expires_at) : undefined
+        expires: file.expires_at ? new Date(file.expires_at) : undefined,
+        tags: [] // Add default empty tags array to ensure it always exists
       })) || [];
     }
   });
 
-  const { data: file, isLoading: isLoadingFile } = useQuery({
+  const { data: file, isLoading: isLoadingFile, refetch: refetchFile } = useQuery({
     queryKey: ['file'],
     enabled: false, // This query won't run automatically
     queryFn: async ({ queryKey }) => {
       const [_, fileId] = queryKey;
+      if (!fileId) return null;
+      
       const { data, error } = await supabase
         .from('files')
         .select('*')
@@ -70,7 +77,8 @@ export const useFiles = () => {
         is_encrypted: !!data.encryption_key,
         shared_with: data.shared_with || [],
         upload_date: data.created_at ? new Date(data.created_at) : undefined,
-        expires: data.expires_at ? new Date(data.expires_at) : undefined
+        expires: data.expires_at ? new Date(data.expires_at) : undefined,
+        tags: [] // Add default empty tags array
       } : null;
     }
   });
@@ -122,10 +130,11 @@ export const useFiles = () => {
 
   return {
     files: files as File[],
-    file,
+    file: file as File | null,
     isLoading,
     isLoadingFile,
     deleteFile,
-    updateFile
+    updateFile,
+    refetchFile
   };
 };

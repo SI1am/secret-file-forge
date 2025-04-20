@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   Eye, 
@@ -33,8 +32,13 @@ const FileView = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   
-  // Update to query the specific file using its id
-  const { file, isLoadingFile, updateFile } = useFiles();
+  const { file, isLoadingFile, updateFile, refetchFile } = useFiles();
+  
+  useEffect(() => {
+    if (id) {
+      refetchFile({ queryKey: ['file', id] });
+    }
+  }, [id, refetchFile]);
 
   const handleDownload = () => {
     toast.success("Download started");
@@ -120,6 +124,8 @@ const FileView = () => {
       </div>
     );
   }
+
+  const tags = file.tags || [];
 
   return (
     <div className="space-y-6">
@@ -251,11 +257,11 @@ const FileView = () => {
                   )}
                 </div>
                 
-                {file.tags && file.tags.length > 0 && (
+                {tags.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Tags</p>
                     <div className="flex flex-wrap gap-2">
-                      {file.tags.map((tag, i) => (
+                      {tags.map((tag, i) => (
                         <Badge key={i} variant="secondary">{tag}</Badge>
                       ))}
                     </div>
