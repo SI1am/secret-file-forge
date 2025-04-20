@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -42,6 +43,7 @@ const FileCard = ({
 }: FileCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const navigate = useNavigate();
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -70,6 +72,11 @@ const FileCard = ({
 
   const isImage = file.type.includes('image');
   const isSpreadsheet = file.type.includes('excel') || file.type.includes('spreadsheet');
+
+  const handleViewFile = () => {
+    // Navigate to the file view page instead of calling onView
+    navigate(`/vault/file/${file.id}`);
+  };
 
   return (
     <Card 
@@ -130,7 +137,7 @@ const FileCard = ({
           variant="ghost"
           size="sm"
           className="flex-1"
-          onClick={() => onView(file.id)}
+          onClick={handleViewFile}
         >
           <Eye className="h-4 w-4 mr-1" /> View
         </Button>

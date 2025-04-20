@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import RequireAuth from "@/components/auth/RequireAuth";
+import React from "react";
 
 // Pages
 import Index from "@/pages/Index";
@@ -15,8 +16,9 @@ import VaultLayout from "@/components/layout/VaultLayout";
 import Dashboard from "@/pages/Dashboard";
 import WatermarkPage from "@/pages/WatermarkPage";
 import DataMaskingPage from "@/pages/DataMaskingPage";
+import FileView from "@/pages/FileView";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
-import React from "react";
 
 // Create a new QueryClient instance outside of the component
 const queryClient = new QueryClient();
@@ -42,8 +44,10 @@ const App = () => {
                   </RequireAuth>
                 }>
                   <Route index element={<Dashboard />} />
+                  <Route path="file/:id" element={<FileView />} />
                   <Route path="watermark/:id" element={<WatermarkPage />} />
                   <Route path="mask/:id" element={<DataMaskingPage />} />
+                  <Route path="settings" element={<Settings />} />
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />
