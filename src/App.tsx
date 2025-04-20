@@ -16,38 +16,44 @@ import Dashboard from "@/pages/Dashboard";
 import WatermarkPage from "@/pages/WatermarkPage";
 import DataMaskingPage from "@/pages/DataMaskingPage";
 import NotFound from "@/pages/NotFound";
+import React from "react";
 
+// Create a new QueryClient instance outside of the component
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            {/* Protected routes */}
-            <Route path="/vault" element={
-              <RequireAuth>
-                <VaultLayout />
-              </RequireAuth>
-            }>
-              <Route index element={<Dashboard />} />
-              <Route path="watermark/:id" element={<WatermarkPage />} />
-              <Route path="mask/:id" element={<DataMaskingPage />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                
+                {/* Protected routes */}
+                <Route path="/vault" element={
+                  <RequireAuth>
+                    <VaultLayout />
+                  </RequireAuth>
+                }>
+                  <Route index element={<Dashboard />} />
+                  <Route path="watermark/:id" element={<WatermarkPage />} />
+                  <Route path="mask/:id" element={<DataMaskingPage />} />
+                </Route>
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
+  );
+};
 
 export default App;
