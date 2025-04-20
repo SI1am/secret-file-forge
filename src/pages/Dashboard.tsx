@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,132 +9,46 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
 import { Plus, Upload, Eye, Image, File } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import FileUploader from "@/components/files/FileUploader";
 import FileCard from "@/components/files/FileCard";
-
-interface VaultFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  uploadDate: Date;
-  isEncrypted: boolean;
-  tags?: string[];
-}
+import { useFiles } from "@/hooks/useFiles";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [files, setFiles] = useState<VaultFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const { files, isLoading, deleteFile, updateFile } = useFiles();
   
-  // Mock data for demonstration
-  useEffect(() => {
-    const mockFiles: VaultFile[] = [
-      {
-        id: "file-1",
-        name: "confidential-report.xlsx",
-        size: 2500000,
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        uploadDate: new Date(2025, 3, 15),
-        isEncrypted: true,
-        tags: ["Report", "Financial"]
-      },
-      {
-        id: "file-2",
-        name: "company-logo.png",
-        size: 1200000,
-        type: "image/png",
-        uploadDate: new Date(2025, 3, 14),
-        isEncrypted: false,
-        tags: ["Image", "Branding"]
-      },
-      {
-        id: "file-3",
-        name: "customer-data.xlsx",
-        size: 3800000,
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        uploadDate: new Date(2025, 3, 12),
-        isEncrypted: true,
-        tags: ["Customer", "PII"]
-      },
-      {
-        id: "file-4",
-        name: "employee-photo.jpg",
-        size: 950000,
-        type: "image/jpeg",
-        uploadDate: new Date(2025, 3, 10),
-        isEncrypted: false,
-        tags: ["Image", "Personnel"]
-      },
-      {
-        id: "file-5",
-        name: "strategic-plan.pdf",
-        size: 4500000,
-        type: "application/pdf",
-        uploadDate: new Date(2025, 3, 5),
-        isEncrypted: true,
-        tags: ["Confidential", "Planning"]
-      }
-    ];
-    
-    setFiles(mockFiles);
-  }, []);
-
   const handleUploadComplete = (uploadedFiles: File[]) => {
-    setIsUploading(true);
-    
-    // Simulate processing upload
-    setTimeout(() => {
-      const newFiles: VaultFile[] = uploadedFiles.map((file, index) => ({
-        id: `new-file-${Date.now()}-${index}`,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        uploadDate: new Date(),
-        isEncrypted: false,
-        tags: []
-      }));
-      
-      setFiles(prev => [...newFiles, ...prev]);
-      setIsUploading(false);
-      setUploadDialogOpen(false);
-      
-      toast.success(`${uploadedFiles.length} file(s) uploaded successfully`);
-    }, 1500);
+    setUploadDialogOpen(false);
+    // Implementation for file upload will be handled in a separate update
   };
 
   const handleDeleteFile = (id: string) => {
-    setFiles(prev => prev.filter(file => file.id !== id));
-    toast.success("File deleted successfully");
+    deleteFile.mutate(id);
   };
 
   const handleViewFile = (id: string) => {
-    // In a real app, this would open the file or navigate to a file view page
-    toast.info("Viewing file...");
     navigate(`/vault/file/${id}`);
   };
 
   const handleDownloadFile = (id: string) => {
-    // In a real app, this would trigger a download
-    toast.success("Download started");
+    // Implementation for file download will be handled in a separate update
   };
 
   const handleWatermarkImage = (id: string) => {
-    // In a real app, this would navigate to a watermarking page or open a modal
     navigate(`/vault/watermark/${id}`);
   };
 
   const handleMaskData = (id: string) => {
-    // In a real app, this would navigate to a data masking page or open a modal
     navigate(`/vault/mask/${id}`);
   };
 
   const getFilteredFiles = () => {
+    if (!files) return [];
+    
     switch (activeTab) {
       case "images":
         return files.filter(file => file.type.includes("image"));
@@ -146,7 +59,7 @@ const Dashboard = () => {
           file.type.includes("sheet")
         );
       case "encrypted":
-        return files.filter(file => file.isEncrypted);
+        return files.filter(file => file.is_encrypted);
       default:
         return files;
     }
@@ -288,7 +201,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {files.filter(file => file.isEncrypted).length}
+              {files.filter(file => file.is_encrypted).length}
             </div>
           </CardContent>
         </Card>

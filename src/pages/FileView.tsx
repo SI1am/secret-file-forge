@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   Eye, 
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { useFiles } from "@/hooks/useFiles";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -24,85 +24,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface FileDetails {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  uploadDate: Date;
-  isEncrypted: boolean;
-  isPublic: boolean;
-  hasWatermark: boolean;
-  isMasked: boolean;
-  tags?: string[];
-  sharedWith: string[];
-  expires?: Date | null;
-}
-
 const FileView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [file, setFile] = useState<FileDetails | null>(null);
-  const [loading, setLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
-
-  useEffect(() => {
-    const fetchFile = async () => {
-      setLoading(true);
-      
-      try {
-        if (!id) {
-          toast.error("File not found");
-          navigate("/vault");
-          return;
-        }
-        
-        const fileData = {
-          id,
-          name: id.includes("image") ? "company-logo.png" : "confidential-report.xlsx",
-          size: id.includes("image") ? 1200000 : 2500000,
-          type: id.includes("image") ? "image/png" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          uploadDate: new Date(2025, 3, 15),
-          isEncrypted: id.includes("file-1") || id.includes("file-3") || id.includes("file-5"),
-          isPublic: false,
-          hasWatermark: id.includes("image") && (id.includes("file-2") || id.includes("file-4")),
-          isMasked: !id.includes("image") && id.includes("file-3"),
-          tags: id.includes("file-1") ? ["Report", "Financial"] : 
-                id.includes("file-2") ? ["Image", "Branding"] : 
-                id.includes("file-3") ? ["Customer", "PII"] :
-                id.includes("file-4") ? ["Image", "Personnel"] : ["Confidential", "Planning"],
-          sharedWith: [],
-          expires: id.includes("file-5") ? new Date(2025, 6, 15) : null
-        };
-        
-        setFile(fileData);
-      } catch (error) {
-        console.error("Error fetching file:", error);
-        toast.error("Failed to load file details");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchFile();
-  }, [id, navigate]);
+  
+  const { file, isLoadingFile, updateFile } = useFiles();
 
   const handleDownload = () => {
     toast.success("Download started");
   };
 
-  const handleEncrypt = () => {
+  const handleEncrypt = async () => {
     if (!file) return;
     
-    setFile(prev => prev ? {...prev, isEncrypted: !prev.isEncrypted} : null);
-    
-    toast.success(file.isEncrypted 
-      ? "File decrypted successfully" 
-      : "File encrypted successfully"
-    );
+    updateFile.mutate({
+      id: file.id,
+      is_encrypted: !file.is_encrypted
+    });
   };
 
   const handleShareFile = () => {
@@ -111,10 +53,12 @@ const FileView = () => {
       return;
     }
     
-    const updatedSharedWith = [...(file.sharedWith || []), shareEmail];
-    setFile({...file, sharedWith: updatedSharedWith});
+    const updatedSharedWith = [...(file.shared_with || []), shareEmail];
+    updateFile.mutate({
+      id: file.id,
+      shared_with: updatedSharedWith
+    });
     
-    toast.success(`File shared with ${shareEmail}`);
     setShareEmail("");
     setShareDialogOpen(false);
   };
@@ -138,7 +82,7 @@ const FileView = () => {
     }
   };
 
-  if (loading) {
+  if (isLoadingFile) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -214,10 +158,10 @@ const FileView = () => {
           </Dialog>
           
           <Button
-            variant={file.isEncrypted ? "destructive" : "secondary"}
+            variant={file.is_encrypted ? "destructive" : "secondary"}
             onClick={handleEncrypt}
           >
-            {file.isEncrypted ? (
+            {file.is_encrypted ? (
               <>
                 <Unlock className="h-4 w-4 mr-2" />
                 Decrypt
@@ -286,7 +230,7 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Upload Date</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(file.uploadDate, "MMM d, yyyy")}
+                      {format(file.upload_date, "MMM d, yyyy")}
                     </p>
                   </div>
                   {file.expires && (
@@ -318,7 +262,7 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Encryption</p>
                     <div className="flex items-center space-x-2">
-                      {file.isEncrypted ? (
+                      {file.is_encrypted ? (
                         <Badge variant="default" className="bg-green-500">Encrypted</Badge>
                       ) : (
                         <Badge variant="outline">Not encrypted</Badge>
@@ -329,7 +273,7 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Watermark</p>
                     <div className="flex items-center space-x-2">
-                      {file.hasWatermark ? (
+                      {file.has_watermark ? (
                         <Badge variant="default" className="bg-green-500">Applied</Badge>
                       ) : (
                         <Badge variant="outline">None</Badge>
@@ -340,7 +284,7 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Data Masking</p>
                     <div className="flex items-center space-x-2">
-                      {file.isMasked ? (
+                      {file.is_masked ? (
                         <Badge variant="default" className="bg-green-500">Applied</Badge>
                       ) : (
                         <Badge variant="outline">None</Badge>
@@ -351,7 +295,7 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Access</p>
                     <div className="flex items-center space-x-2">
-                      {file.isPublic ? (
+                      {file.is_public ? (
                         <Badge variant="destructive">Public</Badge>
                       ) : (
                         <Badge variant="default" className="bg-green-500">Private</Badge>
@@ -362,17 +306,20 @@ const FileView = () => {
                 
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Shared With</p>
-                  {file.sharedWith && file.sharedWith.length > 0 ? (
+                  {file.shared_with && file.shared_with.length > 0 ? (
                     <div className="space-y-2">
-                      {file.sharedWith.map((email, i) => (
+                      {file.shared_with.map((email, i) => (
                         <div key={i} className="flex items-center justify-between p-2 bg-background rounded-md border">
                           <span className="text-sm">{email}</span>
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => {
-                              const updated = file.sharedWith.filter(e => e !== email);
-                              setFile({...file, sharedWith: updated});
+                              const updated = file.shared_with.filter(e => e !== email);
+                              updateFile.mutate({
+                                id: file.id,
+                                shared_with: updated
+                              });
                               toast.success(`Removed ${email} from shared list`);
                             }}
                           >
@@ -401,12 +348,12 @@ const FileView = () => {
                     <div className="flex-1">
                       <p className="text-sm font-medium">File uploaded</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(file.uploadDate, "MMMM d, yyyy 'at' h:mm a")}
+                        {format(file.upload_date, "MMMM d, yyyy 'at' h:mm a")}
                       </p>
                     </div>
                   </div>
                   
-                  {file.isEncrypted && (
+                  {file.is_encrypted && (
                     <div className="flex items-start">
                       <div className="relative mr-4">
                         <div className="bg-primary h-2 w-2 rounded-full mt-2"></div>
@@ -415,13 +362,13 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">File encrypted</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.uploadDate.getTime() + 5 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {format(new Date(file.upload_date.getTime() + 5 * 60000), "MMMM d, yyyy 'at' h:mm a")}
                         </p>
                       </div>
                     </div>
                   )}
                   
-                  {file.hasWatermark && (
+                  {file.has_watermark && (
                     <div className="flex items-start">
                       <div className="relative mr-4">
                         <div className="bg-primary h-2 w-2 rounded-full mt-2"></div>
@@ -430,13 +377,13 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">Watermark applied</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.uploadDate.getTime() + 10 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {format(new Date(file.upload_date.getTime() + 10 * 60000), "MMMM d, yyyy 'at' h:mm a")}
                         </p>
                       </div>
                     </div>
                   )}
                   
-                  {file.isMasked && (
+                  {file.is_masked && (
                     <div className="flex items-start">
                       <div className="relative mr-4">
                         <div className="bg-primary h-2 w-2 rounded-full mt-2"></div>
@@ -445,7 +392,7 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">Data masking applied</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.uploadDate.getTime() + 15 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {format(new Date(file.upload_date.getTime() + 15 * 60000), "MMMM d, yyyy 'at' h:mm a")}
                         </p>
                       </div>
                     </div>
@@ -484,21 +431,21 @@ const FileView = () => {
               <Separator className="my-4" />
               
               <div className="space-y-4">
-                {file.isEncrypted && (
+                {file.is_encrypted && (
                   <div className="flex items-center space-x-2 text-sm">
                     <Lock className="h-4 w-4 text-green-500" />
                     <span>Encrypted file</span>
                   </div>
                 )}
                 
-                {file.hasWatermark && (
+                {file.has_watermark && (
                   <div className="flex items-center space-x-2 text-sm">
                     <ImageIcon className="h-4 w-4 text-green-500" />
                     <span>Watermarked</span>
                   </div>
                 )}
                 
-                {file.isMasked && (
+                {file.is_masked && (
                   <div className="flex items-center space-x-2 text-sm">
                     <Eye className="h-4 w-4 text-green-500" />
                     <span>Data masked</span>
@@ -522,7 +469,7 @@ const FileView = () => {
                     Download
                   </Button>
                   
-                  {file.type.includes('image') && !file.hasWatermark && (
+                  {file.type.includes('image') && !file.has_watermark && (
                     <Button 
                       variant="outline" 
                       className="justify-start"
@@ -533,7 +480,7 @@ const FileView = () => {
                     </Button>
                   )}
                   
-                  {!file.type.includes('image') && !file.isMasked && file.type.includes('spreadsheet') && (
+                  {!file.type.includes('image') && !file.is_masked && file.type.includes('spreadsheet') && (
                     <Button 
                       variant="outline" 
                       className="justify-start"
@@ -549,7 +496,7 @@ const FileView = () => {
                     className="justify-start"
                     onClick={handleEncrypt}
                   >
-                    {file.isEncrypted ? (
+                    {file.is_encrypted ? (
                       <>
                         <Unlock className="h-4 w-4 mr-2" />
                         Decrypt File

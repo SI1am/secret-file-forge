@@ -20,8 +20,11 @@ interface FileCardProps {
     name: string;
     size: number;
     type: string;
-    uploadDate: Date;
-    isEncrypted: boolean;
+    created_at: string;
+    is_encrypted: boolean;
+    is_masked: boolean;
+    has_watermark: boolean;
+    shared_with?: string[];
     tags?: string[];
   };
   onDelete: (id: string) => void;
