@@ -16,12 +16,15 @@ export interface File {
   is_public: boolean;
   shared_with: string[];
   expires_at: string | null;
+  tags?: string[];
+  upload_date?: Date;
+  expires?: Date;
 }
 
 export const useFiles = () => {
   const queryClient = useQueryClient();
 
-  const { data: files, isLoading } = useQuery({
+  const { data: files = [], isLoading } = useQuery({
     queryKey: ['files'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,7 +37,14 @@ export const useFiles = () => {
         throw error;
       }
 
-      return data;
+      // Transform the data to match our File interface
+      return data?.map(file => ({
+        ...file,
+        is_encrypted: !!file.encryption_key, // Determine is_encrypted based on encryption_key
+        shared_with: file.shared_with || [],
+        upload_date: file.created_at ? new Date(file.created_at) : undefined,
+        expires: file.expires_at ? new Date(file.expires_at) : undefined
+      })) || [];
     }
   });
 
@@ -54,7 +64,14 @@ export const useFiles = () => {
         throw error;
       }
 
-      return data;
+      // Transform to match our File interface
+      return data ? {
+        ...data,
+        is_encrypted: !!data.encryption_key,
+        shared_with: data.shared_with || [],
+        upload_date: data.created_at ? new Date(data.created_at) : undefined,
+        expires: data.expires_at ? new Date(data.expires_at) : undefined
+      } : null;
     }
   });
 
@@ -78,9 +95,18 @@ export const useFiles = () => {
 
   const updateFile = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<File> & { id: string }) => {
+      // Transform our File interface back to match the database schema
+      const dbUpdates = { ...updates };
+      
+      // Handle specific field transformations
+      if ('is_encrypted' in updates) {
+        dbUpdates.encryption_key = updates.is_encrypted ? 'encrypted' : null;
+        delete dbUpdates.is_encrypted;
+      }
+      
       const { error } = await supabase
         .from('files')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id);
 
       if (error) throw error;
@@ -95,7 +121,7 @@ export const useFiles = () => {
   });
 
   return {
-    files,
+    files: files as File[],
     file,
     isLoading,
     isLoadingFile,

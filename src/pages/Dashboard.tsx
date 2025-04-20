@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
-  const { files, isLoading, deleteFile, updateFile } = useFiles();
+  const { files = [], isLoading, deleteFile, updateFile } = useFiles();
   
   const handleUploadComplete = (uploadedFiles: File[]) => {
     setUploadDialogOpen(false);
@@ -47,16 +48,16 @@ const Dashboard = () => {
   };
 
   const getFilteredFiles = () => {
-    if (!files) return [];
+    if (!files || files.length === 0) return [];
     
     switch (activeTab) {
       case "images":
-        return files.filter(file => file.type.includes("image"));
+        return files.filter(file => file.type?.includes("image"));
       case "documents":
         return files.filter(file => 
-          file.type.includes("pdf") || 
-          file.type.includes("doc") || 
-          file.type.includes("sheet")
+          file.type?.includes("pdf") || 
+          file.type?.includes("doc") || 
+          file.type?.includes("sheet")
         );
       case "encrypted":
         return files.filter(file => file.is_encrypted);
@@ -107,7 +108,10 @@ const Dashboard = () => {
               {getFilteredFiles().map((file) => (
                 <FileCard
                   key={file.id}
-                  file={file}
+                  file={{
+                    ...file,
+                    upload_date: file.upload_date || new Date(file.created_at)
+                  }}
                   onDelete={handleDeleteFile}
                   onView={handleViewFile}
                   onDownload={handleDownloadFile}
@@ -165,7 +169,7 @@ const Dashboard = () => {
             <CardDescription>All files in your vault</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{files.length}</div>
+            <div className="text-3xl font-bold">{files?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
@@ -175,7 +179,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {files.filter(file => file.type.includes("image")).length}
+              {files?.filter(file => file.type?.includes("image"))?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -186,11 +190,11 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {files.filter(file => 
-                file.type.includes("pdf") || 
-                file.type.includes("doc") || 
-                file.type.includes("sheet")
-              ).length}
+              {files?.filter(file => 
+                file.type?.includes("pdf") || 
+                file.type?.includes("doc") || 
+                file.type?.includes("sheet")
+              )?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -201,7 +205,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {files.filter(file => file.is_encrypted).length}
+              {files?.filter(file => file.is_encrypted)?.length || 0}
             </div>
           </CardContent>
         </Card>

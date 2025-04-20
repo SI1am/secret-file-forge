@@ -8,11 +8,12 @@ import {
   Trash, 
   Eye, 
   Lock, 
-  ImageIcon, // Changed from Image to ImageIcon
+  ImageIcon, 
   FileImage,
   File
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface FileCardProps {
   file: {
@@ -26,6 +27,7 @@ interface FileCardProps {
     has_watermark: boolean;
     shared_with?: string[];
     tags?: string[];
+    upload_date?: Date;
   };
   onDelete: (id: string) => void;
   onView: (id: string) => void;
@@ -48,12 +50,10 @@ const FileCard = ({
   const [showOptions, setShowOptions] = useState(false);
   const navigate = useNavigate();
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+  const formatDate = (date?: Date | string) => {
+    if (!date) return 'Unknown date';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'MMM d, yyyy');
   };
 
   const formatSize = (bytes: number) => {
@@ -100,7 +100,7 @@ const FileCard = ({
               <h3 className="font-medium truncate" title={file.name}>
                 {file.name}
               </h3>
-              {file.isEncrypted && (
+              {file.is_encrypted && (
                 <span className="security-badge security-badge-secure">
                   <Lock className="h-3 w-3 mr-1" />
                   Encrypted
@@ -110,7 +110,7 @@ const FileCard = ({
             <div className="flex text-xs text-muted-foreground space-x-4">
               <span>{formatSize(file.size)}</span>
               <span>·</span>
-              <span>{formatDate(file.uploadDate)}</span>
+              <span>{formatDate(file.upload_date || file.created_at)}</span>
             </div>
             {file.tags && file.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">

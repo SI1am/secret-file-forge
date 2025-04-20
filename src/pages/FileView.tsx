@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -32,6 +33,7 @@ const FileView = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   
+  // Update to query the specific file using its id
   const { file, isLoadingFile, updateFile } = useFiles();
 
   const handleDownload = () => {
@@ -68,6 +70,12 @@ const FileView = () => {
     if (bytes === 0) return '0 Byte';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  const formatDate = (date?: Date | string) => {
+    if (!date) return 'Unknown date';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'MMM d, yyyy');
   };
 
   const getFileIcon = () => {
@@ -230,14 +238,14 @@ const FileView = () => {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Upload Date</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(file.upload_date, "MMM d, yyyy")}
+                      {formatDate(file.upload_date || file.created_at)}
                     </p>
                   </div>
-                  {file.expires && (
+                  {file.expires_at && (
                     <div className="space-y-1 col-span-2">
                       <p className="text-sm font-medium">Expires On</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(file.expires, "MMM d, yyyy")}
+                        {formatDate(file.expires_at)}
                       </p>
                     </div>
                   )}
@@ -348,7 +356,7 @@ const FileView = () => {
                     <div className="flex-1">
                       <p className="text-sm font-medium">File uploaded</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(file.upload_date, "MMMM d, yyyy 'at' h:mm a")}
+                        {formatDate(file.upload_date || file.created_at)}
                       </p>
                     </div>
                   </div>
@@ -362,7 +370,7 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">File encrypted</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.upload_date.getTime() + 5 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {formatDate(new Date(new Date(file.created_at).getTime() + 5 * 60000))}
                         </p>
                       </div>
                     </div>
@@ -377,7 +385,7 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">Watermark applied</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.upload_date.getTime() + 10 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {formatDate(new Date(new Date(file.created_at).getTime() + 10 * 60000))}
                         </p>
                       </div>
                     </div>
@@ -392,7 +400,7 @@ const FileView = () => {
                       <div className="flex-1">
                         <p className="text-sm font-medium">Data masking applied</p>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(file.upload_date.getTime() + 15 * 60000), "MMMM d, yyyy 'at' h:mm a")}
+                          {formatDate(new Date(new Date(file.created_at).getTime() + 15 * 60000))}
                         </p>
                       </div>
                     </div>
@@ -452,10 +460,10 @@ const FileView = () => {
                   </div>
                 )}
                 
-                {file.expires && (
+                {file.expires_at && (
                   <div className="flex items-center space-x-2 text-sm">
                     <Calendar className="h-4 w-4 text-amber-500" />
-                    <span>Expires {format(file.expires, "MMM d, yyyy")}</span>
+                    <span>Expires {formatDate(file.expires_at)}</span>
                   </div>
                 )}
               </div>
