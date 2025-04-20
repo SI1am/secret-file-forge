@@ -9,39 +9,96 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          resource_id: string | null
+          resource_type: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          resource_id?: string | null
+          resource_type?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          resource_id?: string | null
+          resource_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       files: {
         Row: {
           created_at: string | null
           encrypted_data: string
+          encryption_key: string | null
+          expires_at: string | null
+          has_watermark: boolean | null
           id: string
+          is_expired: boolean | null
+          is_masked: boolean | null
           is_public: boolean | null
+          masking_config: Json | null
           name: string
+          original_file_path: string | null
+          processed_file_path: string | null
           shared_with: string[] | null
           size: number
           type: string
           user_id: string
+          watermark_data: Json | null
         }
         Insert: {
           created_at?: string | null
           encrypted_data: string
+          encryption_key?: string | null
+          expires_at?: string | null
+          has_watermark?: boolean | null
           id?: string
+          is_expired?: boolean | null
+          is_masked?: boolean | null
           is_public?: boolean | null
+          masking_config?: Json | null
           name: string
+          original_file_path?: string | null
+          processed_file_path?: string | null
           shared_with?: string[] | null
           size: number
           type: string
           user_id: string
+          watermark_data?: Json | null
         }
         Update: {
           created_at?: string | null
           encrypted_data?: string
+          encryption_key?: string | null
+          expires_at?: string | null
+          has_watermark?: boolean | null
           id?: string
+          is_expired?: boolean | null
+          is_masked?: boolean | null
           is_public?: boolean | null
+          masking_config?: Json | null
           name?: string
+          original_file_path?: string | null
+          processed_file_path?: string | null
           shared_with?: string[] | null
           size?: number
           type?: string
           user_id?: string
+          watermark_data?: Json | null
         }
         Relationships: []
       }
@@ -69,6 +126,33 @@ export type Database = {
           type?: string
           uid?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          dark_mode: boolean | null
+          id: string
+          notifications_enabled: boolean | null
+          preferences: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dark_mode?: boolean | null
+          id: string
+          notifications_enabled?: boolean | null
+          preferences?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dark_mode?: boolean | null
+          id?: string
+          notifications_enabled?: boolean | null
+          preferences?: Json | null
+          updated_at?: string
         }
         Relationships: []
       }
