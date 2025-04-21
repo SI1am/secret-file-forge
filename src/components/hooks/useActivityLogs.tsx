@@ -1,14 +1,15 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 interface ActivityLog {
   id: string;
   user_id: string;
   action: string;
-  file_id: string | null;
-  file_name: string | null;
-  details: any;
+  resource_id: string | null;
+  resource_type: string | null;
+  details: Json;
   created_at: string;
 }
 
@@ -27,8 +28,19 @@ export const useActivityLogs = () => {
         .limit(50);
         
       if (error) throw error;
+
+      // Map to ActivityLog type structure
+      const mappedLogs = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        action: item.action,
+        resource_id: item.resource_id || null,
+        resource_type: item.resource_type || null,
+        details: item.details || {},
+        created_at: item.created_at,
+      }));
       
-      setLogs(data || []);
+      setLogs(mappedLogs);
       setError(null);
     } catch (err: any) {
       console.error('Error fetching activity logs:', err);
@@ -37,34 +49,34 @@ export const useActivityLogs = () => {
       setIsLoading(false);
     }
   };
-  
+
   const logActivity = async (
     action: string, 
-    fileId?: string, 
-    fileName?: string, 
+    resourceId?: string, 
+    resourceType?: string, 
     details?: any
   ) => {
     try {
-      // First ensure we have a user_id
+      // Ensure user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         throw new Error('User must be authenticated to log activities');
       }
-      
+
       const { error } = await supabase
         .from('activity_logs')
         .insert([{
           user_id: session.user.id,
           action,
-          file_id: fileId,
-          file_name: fileName,
+          resource_id: resourceId || null,
+          resource_type: resourceType || null,
           details: details || {}
         }]);
-      
+        
       if (error) throw error;
-      
-      // Re-fetch logs to update the list
+
+      // Re-fetch logs to update list
       fetchLogs();
       return true;
     } catch (err) {
@@ -82,7 +94,7 @@ export const useActivityLogs = () => {
     isLoading,
     error,
     fetchLogs,
-    logActivity
+    logActivity,
   };
 };
 

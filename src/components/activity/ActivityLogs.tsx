@@ -3,15 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
-import { FileUp, Download, Share2, FileText, Clock, User, Activity } from 'lucide-react';
+import { FileUp, Download, Share2, FileText, Clock, Activity } from 'lucide-react';
+import { Json } from '@/integrations/supabase/types';
 
 interface ActivityLog {
   id: string;
   user_id: string;
   action: string;
-  file_id: string | null;
-  file_name: string | null;
-  details: any;
+  resource_id: string | null;
+  resource_type: string | null;
+  details: Json;
   created_at: string;
 }
 
@@ -34,7 +35,17 @@ export const ActivityLogs = () => {
           throw error;
         }
 
-        setActivities(data || []);
+        const mappedActivities = (data || []).map(item => ({
+          id: item.id,
+          user_id: item.user_id,
+          action: item.action,
+          resource_id: item.resource_id || null,
+          resource_type: item.resource_type || null,
+          details: item.details || {},
+          created_at: item.created_at,
+        }));
+
+        setActivities(mappedActivities);
       } catch (err) {
         console.error("Failed to fetch activity logs:", err);
       } finally {
@@ -63,17 +74,17 @@ export const ActivityLogs = () => {
   const getActivityMessage = (activity: ActivityLog) => {
     switch (activity.action) {
       case 'uploaded':
-        return `You uploaded "${activity.file_name}"`;
+        return `You uploaded "${activity.resource_id}"`;
       case 'downloaded':
-        return `You downloaded "${activity.file_name}"`;
+        return `You downloaded "${activity.resource_id}"`;
       case 'shared':
         return activity.details?.shared_with 
-          ? `You shared "${activity.file_name}" with ${activity.details.shared_with}`
-          : `You shared "${activity.file_name}"`;
+          ? `You shared "${activity.resource_id}" with ${activity.details.shared_with}`
+          : `You shared "${activity.resource_id}"`;
       case 'viewed':
-        return `You viewed "${activity.file_name}"`;
+        return `You viewed "${activity.resource_id}"`;
       default:
-        return `Activity: ${activity.action} ${activity.file_name ? `- ${activity.file_name}` : ''}`;
+        return `Activity: ${activity.action} ${activity.resource_id ? `- ${activity.resource_id}` : ''}`;
     }
   };
 

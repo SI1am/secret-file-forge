@@ -18,7 +18,7 @@ export interface File {
   is_public: boolean;
   shared_with: string[];
   expires_at: string | null;
-  tags?: string[];
+  tags: string[]; // Important: keep tags required as [] by default
   upload_date?: Date;
   expires?: Date;
   watermark_data?: Json;
@@ -45,34 +45,32 @@ export const useFiles = () => {
 
       console.log('Files fetched:', data);
 
-      // Transform the data to match our File interface
       return data?.map(file => ({
         ...file,
-        is_encrypted: !!file.encryption_key, // Determine is_encrypted based on encryption_key
+        is_encrypted: !!file.encryption_key,
         shared_with: file.shared_with || [],
         upload_date: file.created_at ? new Date(file.created_at) : undefined,
         expires: file.expires_at ? new Date(file.expires_at) : undefined,
-        tags: file.tags || [] // Add default empty tags array to ensure it always exists
+        tags: (file.tags ?? []) as string[]
       })) || [];
     },
-    refetchOnWindowFocus: true, // Re-fetch when the window regains focus
-    refetchOnReconnect: true // Re-fetch when the user reconnects
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 
-  // Modify this query to accept a fileId parameter
   const getFileById = (fileId?: string) => {
     return useQuery({
       queryKey: ['file', fileId],
-      enabled: !!fileId, // Only run when fileId is provided
+      enabled: !!fileId,
       queryFn: async () => {
         if (!fileId) return null;
-        
+
         console.log('Fetching file by ID:', fileId);
         const { data, error } = await supabase
           .from('files')
           .select('*')
           .eq('id', fileId)
-          .single();
+          .maybeSingle(); // avoid error if no record found
 
         if (error) {
           console.error('Error fetching file by ID:', error);
@@ -82,20 +80,18 @@ export const useFiles = () => {
 
         console.log('File fetched:', data);
 
-        // Transform to match our File interface
         return data ? {
           ...data,
           is_encrypted: !!data.encryption_key,
           shared_with: data.shared_with || [],
           upload_date: data.created_at ? new Date(data.created_at) : undefined,
           expires: data.expires_at ? new Date(data.expires_at) : undefined,
-          tags: data.tags || [] // Add default empty tags array
+          tags: (data.tags ?? []) as string[]
         } : null;
       }
     });
   };
 
-  // Create a mutation for uploading files
   const uploadFile = useMutation({
     mutationFn: async (fileData: {
       name: string;
@@ -109,14 +105,14 @@ export const useFiles = () => {
         .from('files')
         .insert([fileData])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error uploading file:', error);
         throw error;
       }
 
-      return data;
+      return data!;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -154,15 +150,14 @@ export const useFiles = () => {
   const updateFile = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<File> & { id: string }) => {
       console.log('Updating file:', id, updates);
-      // Transform our File interface back to match the database schema
+
       const dbUpdates = { ...updates };
       
-      // Handle specific field transformations
       if ('is_encrypted' in updates) {
         dbUpdates.encryption_key = updates.is_encrypted ? 'encrypted' : null;
         delete dbUpdates.is_encrypted;
       }
-      
+
       const { error } = await supabase
         .from('files')
         .update(dbUpdates)
@@ -183,17 +178,20 @@ export const useFiles = () => {
     }
   });
 
-  // Log file activity
-  const logActivity = async (action: string, fileId?: string, fileName?: string, details?: any) => {
+  const logActivity = async (action: string, resourceId?: string, resourceType?: string, details?: any) => {
     try {
-      const { error } = await supabase.from('activity_logs').insert([
-        {
-          action,
-          file_id: fileId,
-          file_name: fileName,
-          details: details || {}
-        }
-      ]);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('User must be authenticated to log activities');
+      }
+
+      const { error } = await supabase.from('activity_logs').insert([{
+        user_id: session.user.id,
+        action,
+        resource_id: resourceId || null,
+        resource_type: resourceType || null,
+        details: details || {}
+      }]);
 
       if (error) {
         console.error('Error logging activity:', error);
@@ -210,6 +208,6 @@ export const useFiles = () => {
     deleteFile,
     updateFile,
     getFileById,
-    logActivity
+    logActivity,
   };
 };
