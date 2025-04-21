@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft, Share2, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useFiles } from "@/hooks/useFiles";
