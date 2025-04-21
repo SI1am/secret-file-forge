@@ -6,35 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useFiles } from '@/hooks/useFiles';
 import { useAuth } from '@/hooks/useAuth';
-
-// Note: Added explicit import line for react-dropzone from alternative method
-// As direct import failed in build, fallback to dynamic import to mitigate build error
-// Once 'react-dropzone' package installed, this can be changed back to static import
-
-// react-dropzone types import fallback (will load dynamic if installed)
-// @ts-ignore
-let useDropzone: typeof import('react-dropzone').useDropzone;
-
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  // Dynamically require to suppress build error if package missing
-  // For this IDE context only; normally do 'import { useDropzone } from "react-dropzone";' directly after installing
-  // Remove this try-catch if react-dropzone installs correctly
-  // This is a workaround to fix compilation error for now.
-  // If you see error in the console, please install the package.
-  //  npm install react-dropzone
-  /* eslint-disable */
-  useDropzone = require('react-dropzone').useDropzone;
-  /* eslint-enable */
-} catch (e) {
-  // fallback dummy useDropzone to prevent crash; will show error in UI if used
-  useDropzone = () => ( {
-    getRootProps: () => ({ onClick: () => alert("Please install react-dropzone to use the uploader.") }),
-    getInputProps: () => ({}),
-    isDragActive: false,
-    open: () => alert("Please install react-dropzone to use the uploader."),
-  });
-}
+import { useDropzone } from 'react-dropzone';
 
 interface FileUploaderProps {
   onUploadComplete?: (files: any[]) => void;
