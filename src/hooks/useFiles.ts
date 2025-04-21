@@ -51,7 +51,8 @@ export const useFiles = () => {
         shared_with: file.shared_with || [],
         upload_date: file.created_at ? new Date(file.created_at) : undefined,
         expires: file.expires_at ? new Date(file.expires_at) : undefined,
-        tags: Array.isArray(file.tags) ? file.tags : []
+        // Add tags with a default empty array since it's missing in the database schema
+        tags: []
       })) || [];
     },
     refetchOnWindowFocus: true,
@@ -86,7 +87,8 @@ export const useFiles = () => {
           shared_with: data.shared_with || [],
           upload_date: data.created_at ? new Date(data.created_at) : undefined,
           expires: data.expires_at ? new Date(data.expires_at) : undefined,
-          tags: Array.isArray(data.tags) ? data.tags : []
+          // Add tags with a default empty array since it's missing in the database schema
+          tags: []
         } : null;
       }
     });
