@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, checkSupabaseConnection } from '@/integrations/supabase/client';
 import { toast } from "sonner";
 import { Json } from '@/integrations/supabase/types';
 
@@ -26,15 +26,23 @@ export interface File {
 
 export const useFiles = () => {
   const queryClient = useQueryClient();
+  const maxRetries = 3;
 
   const { data: files = [], isLoading } = useQuery({
     queryKey: ['files'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
+      // First check if Supabase is available
+      const isConnected = await checkSupabaseConnection();
+      if (!isConnected) {
+        throw new Error('Database connection unavailable. Please try again later.');
+      }
+
       console.log('Fetching files...');
       const { data, error } = await supabase
         .from('files')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .abortSignal(signal);
 
       if (error) {
         console.error('Error fetching files:', error);
@@ -53,8 +61,10 @@ export const useFiles = () => {
         tags: Array.isArray(file.tags) ? file.tags : [] // Ensure tags is always an array
       })) || [];
     },
+    retry: maxRetries,
     refetchOnWindowFocus: true,
-    refetchOnReconnect: true
+    refetchOnReconnect: true,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const getFileById = (fileId?: string) => {

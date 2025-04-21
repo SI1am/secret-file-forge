@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import FileCard from "@/components/files/FileCard";
 import ActivityLogs from "@/components/activity/ActivityLogs";
 import { useFiles } from "@/hooks/useFiles";
 import { useAuth } from "@/hooks/useAuth";
+import { ExclamationTriangleIcon } from "lucide-react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -131,6 +131,21 @@ const Dashboard = () => {
                     <p className="mt-4 text-muted-foreground">Loading files...</p>
                   </div>
                 </div>
+              ) : files instanceof Error ? (
+                <Card className="bg-muted/40">
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <div className="rounded-full bg-destructive/10 p-3 mb-4">
+                      <ExclamationTriangleIcon className="h-6 w-6 text-destructive" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Connection Error</h3>
+                    <p className="text-muted-foreground mb-6 max-w-sm">
+                      We're having trouble connecting to the server. Please try again later.
+                    </p>
+                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['files'] })}>
+                      Retry
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : getFilteredFiles().length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {getFilteredFiles().map((file) => (
