@@ -56,6 +56,7 @@ export type Database = {
           processed_file_path: string | null
           shared_with: string[] | null
           size: number
+          tags: string[]
           type: string
           user_id: string
           watermark_data: Json | null
@@ -76,6 +77,7 @@ export type Database = {
           processed_file_path?: string | null
           shared_with?: string[] | null
           size: number
+          tags?: string[]
           type: string
           user_id: string
           watermark_data?: Json | null
@@ -96,6 +98,7 @@ export type Database = {
           processed_file_path?: string | null
           shared_with?: string[] | null
           size?: number
+          tags?: string[]
           type?: string
           user_id?: string
           watermark_data?: Json | null
