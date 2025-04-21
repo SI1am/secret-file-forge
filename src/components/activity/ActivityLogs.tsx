@@ -78,8 +78,9 @@ export const ActivityLogs = () => {
       case 'downloaded':
         return `You downloaded "${activity.resource_id}"`;
       case 'shared':
-        return activity.details?.shared_with 
-          ? `You shared "${activity.resource_id}" with ${activity.details.shared_with}`
+        // Fix: Add type check for details.shared_with
+        return typeof activity.details === 'object' && activity.details && 'shared_with' in activity.details
+          ? `You shared "${activity.resource_id}" with ${String(activity.details.shared_with)}`
           : `You shared "${activity.resource_id}"`;
       case 'viewed':
         return `You viewed "${activity.resource_id}"`;

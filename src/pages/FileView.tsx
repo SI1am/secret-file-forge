@@ -35,7 +35,7 @@ const FileView = () => {
     toast.success("Download started");
     
     // Log the download activity
-    await logActivity("downloaded", file.id, file.name);
+    await logActivity("downloaded", file.id, "file", { fileName: file.name });
   };
 
   const handleEncrypt = async () => {
@@ -50,7 +50,8 @@ const FileView = () => {
     await logActivity(
       file.is_encrypted ? "decrypted" : "encrypted", 
       file.id, 
-      file.name
+      "file",
+      { fileName: file.name }
     );
   };
 
@@ -70,8 +71,8 @@ const FileView = () => {
     await logActivity(
       "shared", 
       file.id, 
-      file.name, 
-      { shared_with: shareEmail }
+      "file", 
+      { fileName: file.name, shared_with: shareEmail }
     );
     
     setShareEmail("");
@@ -90,8 +91,8 @@ const FileView = () => {
     await logActivity(
       "unshared", 
       file.id, 
-      file.name, 
-      { removed_user: email }
+      "file", 
+      { fileName: file.name, removed_user: email }
     );
     
     toast.success(`Removed ${email} from shared list`);
