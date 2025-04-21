@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/useAuth";
 
 import { FilePreview } from "@/components/files/FilePreview";
 import { FileDetails } from "@/components/files/FileDetails";
@@ -22,12 +23,19 @@ const FileView = () => {
   const [shareEmail, setShareEmail] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+  const { user } = useAuth();
   
-  const { updateFile } = useFiles();
-  const { data: file, isLoading } = useFiles().getFileById(id);
+  const { updateFile, logActivity } = useFiles();
+  const { data: file, isLoading, error } = useFiles().getFileById(id);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    if (!file) return;
+    
+    // For now, just show a toast since we're not actually downloading
     toast.success("Download started");
+    
+    // Log the download activity
+    await logActivity("downloaded", file.id, file.name);
   };
 
   const handleEncrypt = async () => {
@@ -37,9 +45,16 @@ const FileView = () => {
       id: file.id,
       is_encrypted: !file.is_encrypted
     });
+    
+    // Log the encryption/decryption activity
+    await logActivity(
+      file.is_encrypted ? "decrypted" : "encrypted", 
+      file.id, 
+      file.name
+    );
   };
 
-  const handleShareFile = () => {
+  const handleShareFile = async () => {
     if (!shareEmail.trim() || !file) {
       toast.error("Please enter a valid email");
       return;
@@ -51,17 +66,34 @@ const FileView = () => {
       shared_with: updatedSharedWith
     });
     
+    // Log the share activity with details
+    await logActivity(
+      "shared", 
+      file.id, 
+      file.name, 
+      { shared_with: shareEmail }
+    );
+    
     setShareEmail("");
     setShareDialogOpen(false);
   };
 
-  const handleRemoveSharedEmail = (email: string) => {
+  const handleRemoveSharedEmail = async (email: string) => {
     if (!file) return;
     const updated = file.shared_with.filter(e => e !== email);
     updateFile.mutate({
       id: file.id,
       shared_with: updated
     });
+    
+    // Log the unshare activity
+    await logActivity(
+      "unshared", 
+      file.id, 
+      file.name, 
+      { removed_user: email }
+    );
+    
     toast.success(`Removed ${email} from shared list`);
   };
 
@@ -72,6 +104,27 @@ const FileView = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading file...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    console.error("Error loading file:", error);
+    return (
+      <div className="text-center py-12">
+        <FileText className="h-16 w-16 mx-auto text-muted-foreground opacity-30" />
+        <h2 className="mt-4 text-xl font-semibold">Error loading file</h2>
+        <p className="mt-2 text-muted-foreground">
+          There was a problem loading this file. Please try again later.
+        </p>
+        <Button 
+          variant="outline" 
+          className="mt-6" 
+          onClick={() => navigate("/vault")}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Return to Vault
+        </Button>
       </div>
     );
   }
@@ -89,7 +142,7 @@ const FileView = () => {
           className="mt-6" 
           onClick={() => navigate("/vault")}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 mr-2" />
           Return to Vault
         </Button>
       </div>
