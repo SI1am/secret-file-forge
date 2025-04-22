@@ -15,9 +15,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   },
   global: {
-    fetch: (...args) => {
+    fetch: (url, options) => {
       // Add custom fetch with timeout
-      return fetch(...args);
+      return fetch(url, options);
     },
   },
 });

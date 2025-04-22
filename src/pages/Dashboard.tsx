@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,14 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Upload, Eye, Image, File } from "lucide-react";
+import { Plus, Upload, Eye, Image, File, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import FileUploader from "@/components/files/FileUploader";
 import FileCard from "@/components/files/FileCard";
 import ActivityLogs from "@/components/activity/ActivityLogs";
 import { useFiles } from "@/hooks/useFiles";
 import { useAuth } from "@/hooks/useAuth";
-import { ExclamationTriangleIcon } from "lucide-react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -135,13 +135,13 @@ const Dashboard = () => {
                 <Card className="bg-muted/40">
                   <CardContent className="flex flex-col items-center justify-center py-10 text-center">
                     <div className="rounded-full bg-destructive/10 p-3 mb-4">
-                      <ExclamationTriangleIcon className="h-6 w-6 text-destructive" />
+                      <AlertTriangle className="h-6 w-6 text-destructive" />
                     </div>
                     <h3 className="text-xl font-semibold mb-2">Connection Error</h3>
                     <p className="text-muted-foreground mb-6 max-w-sm">
                       We're having trouble connecting to the server. Please try again later.
                     </p>
-                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['files'] })}>
+                    <Button onClick={() => window.location.reload()}>
                       Retry
                     </Button>
                   </CardContent>
