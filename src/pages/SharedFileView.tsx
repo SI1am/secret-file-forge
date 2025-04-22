@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FileText, Download, AlertTriangle, Lock, ArrowLeft, Eye, Share2 } from "lucide-react";
@@ -146,6 +145,8 @@ const SharedFileView = () => {
             type={file.type}
             id={file.id}
             encrypted_data={file.encrypted_data}
+            encryption_key={file.encryption_key}
+            is_encrypted={file.is_encrypted}
             onDownload={handleDownload}
           />
         </TabsContent>

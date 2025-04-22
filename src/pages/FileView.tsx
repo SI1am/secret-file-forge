@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Share2, FileText, Download } from "lucide-react";
@@ -198,6 +197,10 @@ const FileView = () => {
           <FilePreview
             name={file.name}
             type={file.type}
+            id={file.id}
+            encrypted_data={file.encrypted_data}
+            encryption_key={file.encryption_key}
+            is_encrypted={file.is_encrypted}
             onDownload={handleDownload}
           />
 

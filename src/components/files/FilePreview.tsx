@@ -1,8 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, FileCode, FileSpreadsheet } from 'lucide-react';
+import { FileText, Download, FileCode, FileSpreadsheet, Lock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { decryptFile, decryptText } from "@/utils/encryption";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FilePreviewProps {
@@ -10,23 +14,33 @@ interface FilePreviewProps {
   type: string;
   id?: string;
   encrypted_data?: string;
+  encryption_key?: string;
   onDownload: () => void;
+  is_encrypted?: boolean;
 }
 
-export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: FilePreviewProps) => {
+export const FilePreview = ({ 
+  name, 
+  type, 
+  id, 
+  encrypted_data,
+  encryption_key,
+  is_encrypted,
+  onDownload 
+}: FilePreviewProps) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [decryptionKey, setDecryptionKey] = useState('');
+  const [showDecryptForm, setShowDecryptForm] = useState(is_encrypted);
 
   useEffect(() => {
-    // Only attempt to load preview if we have a file ID or encrypted data
-    if (id && type.includes('image') && !encrypted_data) {
+    if (id && type.includes('image') && !encrypted_data && !is_encrypted) {
       loadPreview();
-    } else if (encrypted_data && type.includes('image')) {
-      // For encrypted images, we can use the encrypted data directly
+    } else if (encrypted_data && type.includes('image') && !is_encrypted) {
       setPreviewUrl(encrypted_data);
     }
-  }, [id, type, encrypted_data]);
+  }, [id, type, encrypted_data, is_encrypted]);
 
   const loadPreview = async () => {
     if (!id) return;
@@ -35,16 +49,59 @@ export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: File
     setError(null);
     
     try {
-      // In a real app, fetch the file from storage
       if (encrypted_data) {
         setPreviewUrl(encrypted_data);
       } else {
-        // For demo purposes, using a placeholder image based on the file name
         setPreviewUrl(`https://source.unsplash.com/random/800x600/?${name.split('.')[0]}`);
       }
     } catch (err) {
       console.error("Error loading preview:", err);
       setError("Failed to load preview");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDecrypt = async () => {
+    if (!encrypted_data || !decryptionKey) {
+      toast.error("Please enter a decryption key");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (type.includes('image')) {
+        const decryptedData = await decryptText(encrypted_data, decryptionKey);
+        setPreviewUrl(decryptedData);
+        setShowDecryptForm(false);
+        toast.success("File decrypted successfully");
+      } else {
+        // For non-image files, we'll handle download after decryption
+        const decryptedFile = await decryptFile(
+          new Uint8Array(Buffer.from(encrypted_data, 'base64')).buffer,
+          decryptionKey,
+          name,
+          type
+        );
+        
+        // Create a download link for the decrypted file
+        const url = URL.createObjectURL(decryptedFile);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success("File decrypted and downloaded successfully");
+      }
+    } catch (err) {
+      console.error("Decryption error:", err);
+      setError("Failed to decrypt file. Please check your decryption key.");
+      toast.error("Failed to decrypt file. Please check your decryption key.");
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +134,31 @@ export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: File
               <Button variant="outline" className="mt-4" onClick={loadPreview}>
                 Retry
               </Button>
+            </div>
+          ) : showDecryptForm ? (
+            <div className="text-center py-12 space-y-4 max-w-md mx-auto w-full px-4">
+              <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+              <h3 className="font-medium">Encrypted File</h3>
+              <p className="text-sm text-muted-foreground">
+                Enter the decryption key to view this file
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="decryption-key">Decryption Key</Label>
+                <Input
+                  id="decryption-key"
+                  type="password"
+                  value={decryptionKey}
+                  onChange={(e) => setDecryptionKey(e.target.value)}
+                  placeholder="Enter decryption key"
+                />
+                <Button 
+                  className="w-full" 
+                  onClick={handleDecrypt}
+                  disabled={!decryptionKey}
+                >
+                  Decrypt File
+                </Button>
+              </div>
             </div>
           ) : type.includes('image') && previewUrl ? (
             <div className="w-full h-full flex items-center justify-center">
