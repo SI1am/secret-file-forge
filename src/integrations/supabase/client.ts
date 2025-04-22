@@ -13,11 +13,18 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
   },
   global: {
     fetch: (url, options) => {
-      // Add custom fetch with timeout
-      return fetch(url, options);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
     },
   },
 });
@@ -29,6 +36,30 @@ export const checkSupabaseConnection = async () => {
     return !error;
   } catch (err) {
     console.error('Failed to connect to Supabase:', err);
+    return false;
+  }
+};
+
+// Generate a shareable link for files
+export const generateShareableLink = (fileId: string) => {
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/shared/${fileId}`;
+};
+
+// Verify if a shared file is accessible
+export const verifySharedAccess = async (fileId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .eq('id', fileId)
+      .or(`is_public.eq.true,shared_with.cs.'{anonymous}'`)
+      .maybeSingle();
+      
+    if (error) throw error;
+    return !!data;
+  } catch (error) {
+    console.error('Error verifying shared access:', error);
     return false;
   }
 };

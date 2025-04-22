@@ -19,6 +19,9 @@ import DataMaskingPage from "@/pages/DataMaskingPage";
 import FileView from "@/pages/FileView";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
+import SharedFileView from "@/pages/SharedFileView";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 // Create a new QueryClient instance outside of the component
 const queryClient = new QueryClient();
@@ -36,6 +39,9 @@ const App = () => {
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/reset-password" element={<ForgotPassword />} />
+                <Route path="/reset" element={<ResetPassword />} />
+                <Route path="/shared/:id" element={<SharedFileView />} />
                 
                 {/* Protected routes */}
                 <Route path="/vault" element={

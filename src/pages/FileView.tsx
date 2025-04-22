@@ -10,17 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
+import { generateShareableLink } from "@/integrations/supabase/client";
 
 import { FilePreview } from "@/components/files/FilePreview";
 import { FileDetails } from "@/components/files/FileDetails";
 import { FileSecurityInfo } from "@/components/files/FileSecurityInfo";
 import { FileHistory } from "@/components/files/FileHistory";
 import { FileSidebar } from "@/components/files/FileSidebar";
+import ShareDialog from "@/components/files/ShareDialog";
 
 const FileView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [shareEmail, setShareEmail] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const { user } = useAuth();
@@ -55,13 +56,13 @@ const FileView = () => {
     );
   };
 
-  const handleShareFile = async () => {
-    if (!shareEmail.trim() || !file) {
+  const handleShareFile = async (email: string) => {
+    if (!email.trim() || !file) {
       toast.error("Please enter a valid email");
       return;
     }
     
-    const updatedSharedWith = [...(file.shared_with || []), shareEmail];
+    const updatedSharedWith = [...(file.shared_with || []), email];
     updateFile.mutate({
       id: file.id,
       shared_with: updatedSharedWith
@@ -72,11 +73,10 @@ const FileView = () => {
       "shared", 
       file.id, 
       "file", 
-      { fileName: file.name, shared_with: shareEmail }
+      { fileName: file.name, shared_with: email }
     );
     
-    setShareEmail("");
-    setShareDialogOpen(false);
+    toast.success(`File shared with ${email}`);
   };
 
   const handleRemoveSharedEmail = async (email: string) => {
@@ -96,6 +96,23 @@ const FileView = () => {
     );
     
     toast.success(`Removed ${email} from shared list`);
+  };
+  
+  const handleUpdateFile = (updates: Partial<typeof file>) => {
+    if (!file) return;
+    
+    updateFile.mutate({
+      id: file.id,
+      ...updates
+    });
+    
+    // Log the update activity
+    logActivity(
+      "updated", 
+      file.id, 
+      "file", 
+      { fileName: file.name, updates: Object.keys(updates).join(', ') }
+    );
   };
 
   if (isLoading) {
@@ -166,33 +183,13 @@ const FileView = () => {
             Download
           </Button>
           
-          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Share File</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Recipient Email</Label>
-                  <Input
-                    placeholder="email@example.com"
-                    value={shareEmail}
-                    onChange={(e) => setShareEmail(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleShareFile} className="w-full">
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share File
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            variant="outline" 
+            onClick={() => setShareDialogOpen(true)}
+          >
+            <Share2 className="h-4 w-4 mr-2" />
+            Share
+          </Button>
         </div>
       </div>
 
@@ -243,6 +240,14 @@ const FileView = () => {
           />
         </div>
       </div>
+      
+      <ShareDialog 
+        file={file}
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        onUpdateFile={handleUpdateFile}
+        onShareWithEmail={handleShareFile}
+      />
     </div>
   );
 };

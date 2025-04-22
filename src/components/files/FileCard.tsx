@@ -10,7 +10,9 @@ import {
   Lock, 
   ImageIcon, 
   FileImage,
-  File
+  File,
+  Share2,
+  Globe
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -64,6 +66,7 @@ const FileCard = ({
 
   const isImage = file.type.includes('image');
   const isSpreadsheet = file.type.includes('excel') || file.type.includes('spreadsheet');
+  const isShared = file.is_public || (file.shared_with && file.shared_with.length > 0);
 
   const handleViewFile = () => {
     // Navigate to the file view page instead of calling onView
@@ -89,12 +92,29 @@ const FileCard = ({
               <h3 className="font-medium truncate" title={file.name}>
                 {file.name}
               </h3>
-              {file.is_encrypted && (
-                <span className="security-badge security-badge-secure">
-                  <Lock className="h-3 w-3 mr-1" />
-                  Encrypted
-                </span>
-              )}
+              <div className="flex items-center space-x-1">
+                {file.is_encrypted && (
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-green-500/10 text-green-600 border-green-500/20">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Encrypted
+                  </span>
+                )}
+                {isShared && (
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-blue-500/10 text-blue-600 border-blue-500/20">
+                    {file.is_public ? (
+                      <>
+                        <Globe className="h-3 w-3 mr-1" />
+                        Public
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-3 w-3 mr-1" />
+                        Shared
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex text-xs text-muted-foreground space-x-4">
               <span>{formatSize(file.size)}</span>
