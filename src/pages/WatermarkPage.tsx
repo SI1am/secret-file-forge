@@ -8,8 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Image, Lock } from "lucide-react";
-import { embedMessageInImage } from "@/utils/steganography";
+import { AlertTriangle, ArrowLeft, Download, Image, Lock } from "lucide-react";
+import { embedMessageInImage, extractMessageFromImage } from "@/utils/steganography";
+import { useFiles } from "@/hooks/useFiles";
+import { supabase } from "@/integrations/supabase/client";
 
 const WatermarkPage = () => {
   const { id } = useParams();
@@ -21,17 +23,28 @@ const WatermarkPage = () => {
   const [password, setPassword] = useState("");
   const [usePassword, setUsePassword] = useState(false);
   const [opacity, setOpacity] = useState([30]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [extractedWatermark, setExtractedWatermark] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const { data: file, isLoading: fileLoading } = useFiles().getFileById(id);
+  const { updateFile, logActivity } = useFiles();
 
-  // In a real app, this would fetch the image from your backend
+  // Load the image
   useEffect(() => {
-    // Mock loading the image
-    const mockImageUrl = "https://source.unsplash.com/random/800x600/?document";
+    if (!id || fileLoading || !file) return;
+
+    if (!file.type.includes('image')) {
+      toast.error("This file is not an image");
+      navigate(-1);
+      return;
+    }
+
+    // In a real app, you would fetch the actual image from your storage
+    const mockImageUrl = `https://source.unsplash.com/random/800x600/?${file.name.split('.')[0]}`;
     setOriginalImage(mockImageUrl);
 
-    // Simulate loading
     toast.info("Loading image...");
-  }, [id]);
+  }, [id, file, fileLoading, navigate]);
 
   const handleApplyWatermark = async () => {
     if (!watermarkText.trim()) {
@@ -53,7 +66,6 @@ const WatermarkPage = () => {
     toast.info("Applying watermark...");
 
     try {
-      // In a real app, this would call your server-side function or do client-side steganography
       const watermarkedResult = await embedMessageInImage(
         imageRef.current,
         watermarkText,
@@ -61,12 +73,59 @@ const WatermarkPage = () => {
       );
 
       setWatermarkedImage(watermarkedResult);
+
+      // In a real app, you would save this watermarked image to your storage
+      // and update the file record
+      if (id) {
+        updateFile.mutate({
+          id,
+          has_watermark: true,
+          watermark_data: {
+            text: watermarkText,
+            isProtected: usePassword,
+            appliedAt: new Date().toISOString()
+          }
+        });
+
+        await logActivity(
+          "applied_watermark",
+          id,
+          "file",
+          { fileName: file?.name, watermarkText }
+        );
+      }
+
       toast.success("Watermark applied successfully!");
     } catch (error) {
       console.error("Error applying watermark:", error);
       toast.error("Failed to apply watermark");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyWatermark = async () => {
+    if (!watermarkedImage) {
+      toast.error("No watermarked image to verify");
+      return;
+    }
+
+    setIsVerifying(true);
+    setExtractedWatermark(null);
+
+    try {
+      const extractedText = await extractMessageFromImage(
+        watermarkedImage,
+        usePassword ? password : undefined
+      );
+
+      setExtractedWatermark(extractedText);
+      toast.success("Watermark verified successfully!");
+    } catch (error) {
+      console.error("Error verifying watermark:", error);
+      toast.error("Failed to verify watermark. Password may be incorrect.");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -79,13 +138,54 @@ const WatermarkPage = () => {
     // Create an anchor element and trigger the download
     const link = document.createElement("a");
     link.href = watermarkedImage;
-    link.download = `watermarked-${id || "image"}.png`;
+    link.download = `watermarked-${file?.name || "image"}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
+    // Log the download activity
+    if (id) {
+      logActivity(
+        "downloaded_watermarked",
+        id,
+        "file",
+        { fileName: file?.name }
+      );
+    }
+
     toast.success("Image downloaded successfully");
   };
+
+  if (fileLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading file data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!file) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="h-16 w-16 mx-auto text-destructive opacity-70" />
+        <h2 className="mt-4 text-xl font-semibold">File not found</h2>
+        <p className="mt-2 text-muted-foreground">
+          The file you are looking for might have been removed or is no longer accessible.
+        </p>
+        <Button 
+          variant="outline" 
+          className="mt-6" 
+          onClick={() => navigate("/vault")}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Return to Vault
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -160,6 +260,17 @@ const WatermarkPage = () => {
                 <Image className="h-4 w-4 mr-2" />
                 {isProcessing ? "Processing..." : "Apply Watermark"}
               </Button>
+              {watermarkedImage && (
+                <Button
+                  onClick={handleVerifyWatermark}
+                  disabled={isVerifying}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  {isVerifying ? "Verifying..." : "Verify Watermark"}
+                </Button>
+              )}
               <Button
                 onClick={handleDownload}
                 disabled={!watermarkedImage}
@@ -170,6 +281,13 @@ const WatermarkPage = () => {
                 Download
               </Button>
             </div>
+
+            {extractedWatermark && (
+              <div className="mt-4 p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">Extracted watermark:</p>
+                <p className="text-sm mt-1">{extractedWatermark}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

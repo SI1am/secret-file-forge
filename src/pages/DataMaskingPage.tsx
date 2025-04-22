@@ -8,11 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Download, Lock, Check, File } from "lucide-react";
+import { ArrowLeft, Download, Lock, Check, File, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { autoMaskSensitiveData } from "@/utils/dataMasking";
+import { useFiles } from "@/hooks/useFiles";
 
 const DataMaskingPage = () => {
   const { id } = useParams();
@@ -24,9 +25,20 @@ const DataMaskingPage = () => {
   const [isMasked, setIsMasked] = useState(false);
   const [previewData, setPreviewData] = useState<Record<string, any>[]>([]);
   const [maskedData, setMaskedData] = useState<Record<string, any>[]>([]);
+  
+  const { data: file, isLoading: fileLoading } = useFiles().getFileById(id);
+  const { updateFile, logActivity } = useFiles();
 
-  // In a real app, this would fetch the file data from your backend
+  // Load the file data
   useEffect(() => {
+    if (fileLoading || !file) return;
+
+    if (!file.type.includes('spreadsheet') && !file.type.includes('csv') && !file.type.includes('excel')) {
+      toast.error("This file type doesn't support data masking");
+      navigate(-1);
+      return;
+    }
+
     // Simulate API call to get file data
     setTimeout(() => {
       // Mock data for an Excel file
@@ -87,8 +99,24 @@ const DataMaskingPage = () => {
       // Pre-select sensitive columns
       setSelectedColumns(["Email", "Phone", "SSN", "Credit Card", "Health ID"]);
       setIsLoading(false);
-    }, 1500);
-  }, [id]);
+      
+      // If file already has masking, load those settings
+      if (file.is_masked && file.masking_config) {
+        try {
+          const config = file.masking_config as any;
+          if (config.masked_columns) {
+            setSelectedColumns(config.masked_columns);
+          }
+          if (config.masked_data) {
+            setMaskedData(config.masked_data);
+            setIsMasked(true);
+          }
+        } catch (err) {
+          console.error("Error loading previous masking config:", err);
+        }
+      }
+    }, 1000);
+  }, [id, file, fileLoading, navigate]);
 
   const handleColumnToggle = (column: string) => {
     setSelectedColumns(prev => 
@@ -123,6 +151,29 @@ const DataMaskingPage = () => {
 
         setMaskedData(masked);
         setIsMasked(true);
+        
+        // Update file record in database
+        if (id) {
+          updateFile.mutate({
+            id,
+            is_masked: true,
+            masking_config: {
+              masked_columns: selectedColumns,
+              masked_at: new Date().toISOString(),
+              // In a real app, don't store the complete masked data in the database
+              // Just store a reference to a masked version of the file
+              masked_data: masked.slice(0, 5) // Store a preview/sample
+            }
+          });
+
+          logActivity(
+            "applied_masking",
+            id,
+            "file",
+            { fileName: file?.name, columns: selectedColumns }
+          );
+        }
+        
         toast.success("Data masking complete!");
       } catch (error) {
         console.error("Error masking data:", error);
@@ -130,7 +181,7 @@ const DataMaskingPage = () => {
       } finally {
         setIsProcessing(false);
       }
-    }, 2000);
+    }, 1500);
   };
 
   const handleDownload = () => {
@@ -141,7 +192,48 @@ const DataMaskingPage = () => {
 
     // In a real app, this would generate and download an Excel file
     toast.success("Masked file downloaded successfully");
+    
+    // Log the activity
+    if (id) {
+      logActivity(
+        "downloaded_masked",
+        id,
+        "file",
+        { fileName: file?.name }
+      );
+    }
   };
+
+  if (fileLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading file data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!file) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="h-16 w-16 mx-auto text-destructive opacity-70" />
+        <h2 className="mt-4 text-xl font-semibold">File not found</h2>
+        <p className="mt-2 text-muted-foreground">
+          The file you are looking for might have been removed or is no longer accessible.
+        </p>
+        <Button 
+          variant="outline" 
+          className="mt-6" 
+          onClick={() => navigate("/vault")}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Return to Vault
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

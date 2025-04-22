@@ -49,6 +49,7 @@ export const generateShareableLink = (fileId: string) => {
 // Verify if a shared file is accessible
 export const verifySharedAccess = async (fileId: string) => {
   try {
+    // Check if file exists and is either public or shared with anonymous
     const { data, error } = await supabase
       .from('files')
       .select('*')
@@ -56,10 +57,67 @@ export const verifySharedAccess = async (fileId: string) => {
       .or(`is_public.eq.true,shared_with.cs.'{anonymous}'`)
       .maybeSingle();
       
-    if (error) throw error;
-    return !!data;
+    if (error) {
+      console.error('Error verifying shared access:', error);
+      throw error;
+    }
+    
+    // Check if the file exists and if it's expired
+    if (!data) return false;
+    
+    // Handle expiration
+    if (data.expires_at) {
+      const expiryDate = new Date(data.expires_at);
+      if (expiryDate < new Date()) {
+        console.log('File access expired on:', expiryDate.toLocaleString());
+        return false;
+      }
+    }
+    
+    return true;
   } catch (error) {
     console.error('Error verifying shared access:', error);
+    return false;
+  }
+};
+
+// Share a file via email - creates a sharing record
+export const shareFileViaEmail = async (fileId: string, email: string, userId: string) => {
+  try {
+    // Get current shared_with array
+    const { data: file, error: fetchError } = await supabase
+      .from('files')
+      .select('shared_with')
+      .eq('id', fileId)
+      .single();
+      
+    if (fetchError) throw fetchError;
+    
+    // Update the shared_with array
+    const sharedWith = Array.isArray(file.shared_with) ? file.shared_with : [];
+    if (!sharedWith.includes(email)) {
+      sharedWith.push(email);
+      
+      const { error: updateError } = await supabase
+        .from('files')
+        .update({ shared_with: sharedWith })
+        .eq('id', fileId);
+        
+      if (updateError) throw updateError;
+      
+      // Log the sharing activity
+      await supabase.from('activity_logs').insert({
+        user_id: userId,
+        action: 'shared',
+        resource_id: fileId,
+        resource_type: 'file',
+        details: { shared_with: email }
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error sharing file:', error);
     return false;
   }
 };

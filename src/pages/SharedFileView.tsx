@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FileText, Download, AlertTriangle, Lock, ArrowLeft } from "lucide-react";
+import { FileText, Download, AlertTriangle, Lock, ArrowLeft, Eye, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { supabase, verifySharedAccess } from "@/integrations/supabase/client";
 import { FilePreview } from "@/components/files/FilePreview";
 import { FileDetails } from "@/components/files/FileDetails";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import ShareDialog from "@/components/files/ShareDialog";
 
 const SharedFileView = () => {
   const { id } = useParams();
@@ -17,6 +18,7 @@ const SharedFileView = () => {
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [activeTab, setActiveTab] = useState("preview");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { data: file, isLoading, error } = useFiles().getFileById(id);
   
   useEffect(() => {
@@ -40,8 +42,8 @@ const SharedFileView = () => {
         user_id: 'anonymous',
         action: 'downloaded',
         resource_id: file.id,
-        resource_type: file.name,
-        details: { from: 'shared_link' }
+        resource_type: 'file',
+        details: { fileName: file.name, from: 'shared_link' }
       }]);
       
       toast.success("Download started");
@@ -103,12 +105,33 @@ const SharedFileView = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">{file.name}</h1>
+          {file.has_watermark && (
+            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+              <Eye className="h-3 w-3 mr-1" />
+              Watermarked
+            </span>
+          )}
+          {file.is_masked && (
+            <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+              <Lock className="h-3 w-3 mr-1" />
+              Data Masked
+            </span>
+          )}
         </div>
         
-        <Button onClick={handleDownload} className="w-full sm:w-auto mt-2 sm:mt-0">
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
+        <div className="flex gap-2 mt-3 sm:mt-0">
+          <Button onClick={handleDownload} className="w-full sm:w-auto">
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+          
+          {file.is_public && (
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShareDialogOpen(true)}>
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -121,6 +144,8 @@ const SharedFileView = () => {
           <FilePreview
             name={file.name}
             type={file.type}
+            id={file.id}
+            encrypted_data={file.encrypted_data}
             onDownload={handleDownload}
           />
         </TabsContent>
@@ -142,6 +167,16 @@ const SharedFileView = () => {
       <div className="text-center text-sm text-muted-foreground mt-8">
         <p>Shared securely with Data-Vault</p>
       </div>
+      
+      {file.is_public && (
+        <ShareDialog 
+          file={file}
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          onUpdateFile={() => {}} // Read-only in shared view
+          onShareWithEmail={() => {}} // Read-only in shared view
+        />
+      )}
     </div>
   );
 };
