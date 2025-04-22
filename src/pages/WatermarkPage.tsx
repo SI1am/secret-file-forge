@@ -1,357 +1,300 @@
 
-import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { AlertTriangle, ArrowLeft, Download, Image, Lock } from "lucide-react";
-import { embedMessageInImage, extractMessageFromImage } from "@/utils/steganography";
-import { useFiles } from "@/hooks/useFiles";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { FilePreview } from "@/components/files/FilePreview";
+import { useFiles, File } from '@/hooks/useFiles';
+import { applyWatermark, verifyWatermark } from '@/utils/steganography';
+import { useToast } from "@/components/ui/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const WatermarkPage = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const { getFileById, updateFile, logActivity } = useFiles();
   const navigate = useNavigate();
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [watermarkedImage, setWatermarkedImage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
-  const [password, setPassword] = useState("");
-  const [usePassword, setUsePassword] = useState(false);
-  const [opacity, setOpacity] = useState([30]);
+  const { toast } = useToast();
+  
+  const { data: file, isLoading, error } = getFileById(id);
+  
+  const [watermarkText, setWatermarkText] = useState('');
+  const [watermarkPosition, setWatermarkPosition] = useState('center');
+  const [opacity, setOpacity] = useState(0.5);
+  const [isVisible, setIsVisible] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [extractedWatermark, setExtractedWatermark] = useState<string | null>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const { data: file, isLoading: fileLoading } = useFiles().getFileById(id);
-  const { updateFile, logActivity } = useFiles();
-
-  // Load the image
-  useEffect(() => {
-    if (!id || fileLoading || !file) return;
-
-    if (!file.type.includes('image')) {
-      toast.error("This file is not an image");
-      navigate(-1);
-      return;
-    }
-
-    // Use the encrypted_data if available, otherwise generate a placeholder
-    if (file.encrypted_data) {
-      setOriginalImage(file.encrypted_data);
-    } else {
-      // In a real app, you would fetch the actual image from your storage
-      const mockImageUrl = `https://source.unsplash.com/random/800x600/?${file.name.split('.')[0]}`;
-      setOriginalImage(mockImageUrl);
-    }
-
-    toast.info("Loading image...");
-  }, [id, file, fileLoading, navigate]);
-
+  const [verificationResult, setVerificationResult] = useState<string | null>(null);
+  const [watermarkImage, setWatermarkImage] = useState<string | null>(null);
+  const [isWatermarking, setIsWatermarking] = useState(false);
+  
   const handleApplyWatermark = async () => {
-    if (!watermarkText.trim()) {
-      toast.error("Please enter watermark text");
+    if (!file || !file.encrypted_data) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File data not available"
+      });
       return;
     }
-
-    if (usePassword && !password.trim()) {
-      toast.error("Please enter a password");
-      return;
-    }
-
-    if (!imageRef.current || !originalImage) {
-      toast.error("Image not loaded properly");
-      return;
-    }
-
-    setIsProcessing(true);
-    toast.info("Applying watermark...");
-
+    
     try {
-      // Create a new Image object to ensure it's fully loaded
-      const img = new Image();
-      img.crossOrigin = "anonymous";
+      setIsWatermarking(true);
       
-      img.onload = async () => {
-        try {
-          const watermarkedResult = await embedMessageInImage(
-            img,
-            watermarkText,
-            usePassword ? password : undefined
-          );
-
-          setWatermarkedImage(watermarkedResult);
-
-          // Update the file record
-          if (id) {
-            updateFile.mutate({
-              id,
-              has_watermark: true,
-              watermark_data: {
-                text: watermarkText,
-                isProtected: usePassword,
-                appliedAt: new Date().toISOString()
-              }
-            });
-
-            await logActivity(
-              "applied_watermark",
-              id,
-              "file",
-              { fileName: file?.name, watermarkText }
-            );
+      // Create an Image object to load the file data
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.src = file.encrypted_data;
+      
+      // Wait for the image to load
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+      });
+      
+      // Apply watermark
+      const watermarkedDataURL = await applyWatermark(image, {
+        text: watermarkText,
+        position: watermarkPosition,
+        opacity: opacity,
+        visible: isVisible,
+      });
+      
+      setWatermarkImage(watermarkedDataURL);
+      
+      // Update file with watermark data
+      if (watermarkedDataURL) {
+        await updateFile.mutateAsync({
+          id: file.id,
+          encrypted_data: watermarkedDataURL,
+          has_watermark: true,
+          watermark_data: {
+            text: watermarkText,
+            position: watermarkPosition,
+            opacity: opacity,
+            visible: isVisible,
+            timestamp: new Date().toISOString()
           }
-
-          toast.success("Watermark applied successfully!");
-        } catch (error) {
-          console.error("Error in onload handler:", error);
-          toast.error("Failed to apply watermark");
-        } finally {
-          setIsProcessing(false);
-        }
-      };
-      
-      img.onerror = () => {
-        console.error("Failed to load image for watermarking");
-        toast.error("Failed to load image for watermarking");
-        setIsProcessing(false);
-      };
-      
-      img.src = originalImage;
-    } catch (error) {
-      console.error("Error applying watermark:", error);
-      toast.error("Failed to apply watermark");
-      setIsProcessing(false);
+        });
+        
+        await logActivity('watermark_applied', file.id, 'file', {
+          fileName: file.name,
+          watermarkText
+        });
+        
+        toast({
+          title: "Success",
+          description: "Watermark applied successfully",
+        });
+      }
+    } catch (err) {
+      console.error("Watermark error:", err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to apply watermark"
+      });
+    } finally {
+      setIsWatermarking(false);
     }
   };
-
+  
   const handleVerifyWatermark = async () => {
-    if (!watermarkedImage) {
-      toast.error("No watermarked image to verify");
+    if (!file || !file.encrypted_data) {
+      toast({
+        variant: "destructive", 
+        title: "Error",
+        description: "File data not available"
+      });
       return;
     }
-
-    setIsVerifying(true);
-    setExtractedWatermark(null);
-
+    
     try {
-      const extractedText = await extractMessageFromImage(
-        watermarkedImage,
-        usePassword ? password : undefined
-      );
-
-      setExtractedWatermark(extractedText);
-      toast.success("Watermark verified successfully!");
-    } catch (error) {
-      console.error("Error verifying watermark:", error);
-      toast.error("Failed to verify watermark. Password may be incorrect.");
+      setIsVerifying(true);
+      
+      // Create an Image object to load the file data
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.src = file.encrypted_data;
+      
+      // Wait for the image to load
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+      });
+      
+      const result = await verifyWatermark(image);
+      setVerificationResult(result ? `Watermark verified: ${result}` : "No watermark found");
+    } catch (err) {
+      console.error("Verification error:", err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to verify watermark"
+      });
+      setVerificationResult("Error verifying watermark");
     } finally {
       setIsVerifying(false);
     }
   };
-
-  const handleDownload = () => {
-    if (!watermarkedImage) {
-      toast.error("No watermarked image to download");
-      return;
-    }
-
-    // Create an anchor element and trigger the download
-    const link = document.createElement("a");
-    link.href = watermarkedImage;
-    link.download = `watermarked-${file?.name || "image"}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Log the download activity
-    if (id) {
-      logActivity(
-        "downloaded_watermarked",
-        id,
-        "file",
-        { fileName: file?.name }
-      );
-    }
-
-    toast.success("Image downloaded successfully");
-  };
-
-  if (fileLoading) {
+  
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading file data...</p>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
-
-  if (!file) {
+  
+  if (error || !file) {
     return (
-      <div className="text-center py-12">
-        <AlertTriangle className="h-16 w-16 mx-auto text-destructive opacity-70" />
-        <h2 className="mt-4 text-xl font-semibold">File not found</h2>
-        <p className="mt-2 text-muted-foreground">
-          The file you are looking for might have been removed or is no longer accessible.
-        </p>
-        <Button 
-          variant="outline" 
-          className="mt-6" 
-          onClick={() => navigate("/vault")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Return to Vault
-        </Button>
+      <div className="flex flex-col items-center justify-center h-full">
+        <h3 className="text-lg font-medium">Error loading file</h3>
+        <p className="text-muted-foreground mb-4">Could not load the requested file</p>
+        <Button onClick={() => navigate('/vault')}>Back to Files</Button>
       </div>
     );
   }
-
+  
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
+    <div className="container py-8 max-w-5xl">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{file.name}</h1>
+          <p className="text-muted-foreground">Watermark and protect your file</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate(`/vault/file/${id}`)}>
+          Back to File
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Image Watermarking</h1>
       </div>
-
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="watermarkText">Watermark Text</Label>
-              <Input
-                id="watermarkText"
-                value={watermarkText}
-                onChange={(e) => setWatermarkText(e.target.value)}
-                placeholder="Enter watermark text"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="usePassword">Password Protection</Label>
-                <Switch
-                  id="usePassword"
-                  checked={usePassword}
-                  onCheckedChange={setUsePassword}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Protect your watermark with a password
-              </p>
-            </div>
-
-            {usePassword && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                  <Label htmlFor="password">Password</Label>
-                </div>
-                <Input
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  type="password"
-                  placeholder="Enter password"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="opacity">Opacity: {opacity}%</Label>
-              <Slider
-                id="opacity"
-                min={5}
-                max={100}
-                step={5}
-                value={opacity}
-                onValueChange={setOpacity}
-              />
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-3 pt-4">
-              <Button
-                onClick={handleApplyWatermark}
-                disabled={isProcessing || !originalImage}
-                className="flex-1"
-              >
-                <Image className="h-4 w-4 mr-2" />
-                {isProcessing ? "Processing..." : "Apply Watermark"}
-              </Button>
-              {watermarkedImage && (
-                <Button
-                  onClick={handleVerifyWatermark}
-                  disabled={isVerifying}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  {isVerifying ? "Verifying..." : "Verify Watermark"}
-                </Button>
-              )}
-              <Button
-                onClick={handleDownload}
-                disabled={!watermarkedImage}
-                variant="outline"
-                className="flex-1"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            </div>
-
-            {extractedWatermark && (
-              <div className="mt-4 p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">Extracted watermark:</p>
-                <p className="text-sm mt-1">{extractedWatermark}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <div className="bg-muted p-2 rounded-md overflow-hidden">
-            <div className="aspect-video relative flex items-center justify-center">
-              {originalImage ? (
-                <img
-                  ref={imageRef}
-                  src={originalImage}
-                  alt="Original"
-                  className="max-h-full max-w-full object-contain"
-                  crossOrigin="anonymous"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <Image className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Loading image...</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {watermarkedImage && (
-            <div className="mt-4">
-              <Label className="block mb-2">Watermarked Image</Label>
-              <div className="bg-muted p-2 rounded-md overflow-hidden">
-                <div className="aspect-video relative flex items-center justify-center">
-                  <img
-                    src={watermarkedImage}
-                    alt="Watermarked"
-                    className="max-h-full max-w-full object-contain"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 flex items-center">
-                <Lock className="h-3 w-3 mr-1" />
-                Steganographic watermark applied
-              </p>
-            </div>
-          )}
+        <div>
+          <FilePreview
+            name={file.name}
+            type={file.type}
+            id={file.id}
+            encrypted_data={watermarkImage || file.encrypted_data}
+            is_encrypted={file.is_encrypted}
+            encryption_key={file.encryption_key}
+            onDownload={() => {}}
+          />
+        </div>
+        
+        <div className="space-y-6">
+          <Tabs defaultValue="add">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="add">Add Watermark</TabsTrigger>
+              <TabsTrigger value="verify">Verify Watermark</TabsTrigger>
+            </TabsList>
+            <TabsContent value="add" className="space-y-4 pt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Watermark Settings</CardTitle>
+                  <CardDescription>
+                    Add a watermark to protect your file from unauthorized use
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="watermark-text">Watermark Text</Label>
+                    <Input
+                      id="watermark-text"
+                      placeholder="Enter watermark text"
+                      value={watermarkText}
+                      onChange={(e) => setWatermarkText(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="position">Position</Label>
+                    <select
+                      id="position"
+                      className="w-full p-2 border rounded"
+                      value={watermarkPosition}
+                      onChange={(e) => setWatermarkPosition(e.target.value)}
+                    >
+                      <option value="center">Center</option>
+                      <option value="top-left">Top Left</option>
+                      <option value="top-right">Top Right</option>
+                      <option value="bottom-left">Bottom Left</option>
+                      <option value="bottom-right">Bottom Right</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="opacity">Opacity: {opacity}</Label>
+                    <input
+                      id="opacity"
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={opacity}
+                      onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="visible" 
+                      checked={isVisible}
+                      onCheckedChange={(checked) => setIsVisible(!!checked)}
+                    />
+                    <Label htmlFor="visible" className="font-normal">
+                      Make watermark visible
+                    </Label>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={handleApplyWatermark} 
+                    disabled={!watermarkText || isWatermarking}
+                    className="w-full"
+                  >
+                    {isWatermarking ? (
+                      <>
+                        <span className="animate-spin mr-2">⌛</span>
+                        Applying Watermark...
+                      </>
+                    ) : 'Apply Watermark'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="verify" className="pt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Verify Watermark</CardTitle>
+                  <CardDescription>
+                    Check if this file contains a hidden watermark
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {verificationResult && (
+                    <div className={`p-4 rounded-md ${verificationResult.includes("No") ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-green-50 text-green-800 border border-green-200"}`}>
+                      {verificationResult}
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={handleVerifyWatermark} 
+                    disabled={isVerifying}
+                    className="w-full"
+                  >
+                    {isVerifying ? 'Verifying...' : 'Verify Watermark'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

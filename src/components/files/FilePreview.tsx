@@ -52,6 +52,7 @@ export const FilePreview = ({
       if (encrypted_data) {
         setPreviewUrl(encrypted_data);
       } else {
+        // Fallback to a placeholder image if actual data is not available
         setPreviewUrl(`https://source.unsplash.com/random/800x600/?${name.split('.')[0]}`);
       }
     } catch (err) {
@@ -72,13 +73,26 @@ export const FilePreview = ({
     setError(null);
 
     try {
+      // Log the decryption attempt
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.from('activity_logs').insert({
+          user_id: session.user.id,
+          action: 'decrypted',
+          resource_id: id,
+          resource_type: 'file',
+          details: { fileName: name }
+        });
+      }
+
       if (type.includes('image')) {
+        // For images, we try to decrypt the base64 data
         const decryptedData = await decryptText(encrypted_data, decryptionKey);
         setPreviewUrl(decryptedData);
         setShowDecryptForm(false);
         toast.success("File decrypted successfully");
       } else {
-        // For non-image files, we'll handle download after decryption
+        // For non-image files, we download after decryption
         const decryptedFile = await decryptFile(
           new Uint8Array(Buffer.from(encrypted_data, 'base64')).buffer,
           decryptionKey,
