@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import { AlertTriangle, ArrowLeft, Download, Image, Lock } from "lucide-react";
 import { embedMessageInImage, extractMessageFromImage } from "@/utils/steganography";
 import { useFiles } from "@/hooks/useFiles";
-import { supabase } from "@/integrations/supabase/client";
 
 const WatermarkPage = () => {
   const { id } = useParams();
@@ -39,9 +38,14 @@ const WatermarkPage = () => {
       return;
     }
 
-    // In a real app, you would fetch the actual image from your storage
-    const mockImageUrl = `https://source.unsplash.com/random/800x600/?${file.name.split('.')[0]}`;
-    setOriginalImage(mockImageUrl);
+    // Use the encrypted_data if available, otherwise generate a placeholder
+    if (file.encrypted_data) {
+      setOriginalImage(file.encrypted_data);
+    } else {
+      // In a real app, you would fetch the actual image from your storage
+      const mockImageUrl = `https://source.unsplash.com/random/800x600/?${file.name.split('.')[0]}`;
+      setOriginalImage(mockImageUrl);
+    }
 
     toast.info("Loading image...");
   }, [id, file, fileLoading, navigate]);
@@ -66,40 +70,59 @@ const WatermarkPage = () => {
     toast.info("Applying watermark...");
 
     try {
-      const watermarkedResult = await embedMessageInImage(
-        imageRef.current,
-        watermarkText,
-        usePassword ? password : undefined
-      );
+      // Create a new Image object to ensure it's fully loaded
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = async () => {
+        try {
+          const watermarkedResult = await embedMessageInImage(
+            img,
+            watermarkText,
+            usePassword ? password : undefined
+          );
 
-      setWatermarkedImage(watermarkedResult);
+          setWatermarkedImage(watermarkedResult);
 
-      // In a real app, you would save this watermarked image to your storage
-      // and update the file record
-      if (id) {
-        updateFile.mutate({
-          id,
-          has_watermark: true,
-          watermark_data: {
-            text: watermarkText,
-            isProtected: usePassword,
-            appliedAt: new Date().toISOString()
+          // Update the file record
+          if (id) {
+            updateFile.mutate({
+              id,
+              has_watermark: true,
+              watermark_data: {
+                text: watermarkText,
+                isProtected: usePassword,
+                appliedAt: new Date().toISOString()
+              }
+            });
+
+            await logActivity(
+              "applied_watermark",
+              id,
+              "file",
+              { fileName: file?.name, watermarkText }
+            );
           }
-        });
 
-        await logActivity(
-          "applied_watermark",
-          id,
-          "file",
-          { fileName: file?.name, watermarkText }
-        );
-      }
-
-      toast.success("Watermark applied successfully!");
+          toast.success("Watermark applied successfully!");
+        } catch (error) {
+          console.error("Error in onload handler:", error);
+          toast.error("Failed to apply watermark");
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+      
+      img.onerror = () => {
+        console.error("Failed to load image for watermarking");
+        toast.error("Failed to load image for watermarking");
+        setIsProcessing(false);
+      };
+      
+      img.src = originalImage;
     } catch (error) {
       console.error("Error applying watermark:", error);
       toast.error("Failed to apply watermark");
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -300,6 +323,7 @@ const WatermarkPage = () => {
                   src={originalImage}
                   alt="Original"
                   className="max-h-full max-w-full object-contain"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">

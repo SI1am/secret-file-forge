@@ -19,7 +19,7 @@ export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: File
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only attempt to load preview if we have a file ID
+    // Only attempt to load preview if we have a file ID or encrypted data
     if (id && type.includes('image') && !encrypted_data) {
       loadPreview();
     } else if (encrypted_data && type.includes('image')) {
@@ -35,9 +35,13 @@ export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: File
     setError(null);
     
     try {
-      // In a real app, fetch the file from your storage
-      // For now, using a placeholder image based on the file name
-      setPreviewUrl(`https://source.unsplash.com/random/800x600/?${name.split('.')[0]}`);
+      // In a real app, fetch the file from storage
+      if (encrypted_data) {
+        setPreviewUrl(encrypted_data);
+      } else {
+        // For demo purposes, using a placeholder image based on the file name
+        setPreviewUrl(`https://source.unsplash.com/random/800x600/?${name.split('.')[0]}`);
+      }
     } catch (err) {
       console.error("Error loading preview:", err);
       setError("Failed to load preview");
@@ -80,6 +84,7 @@ export const FilePreview = ({ name, type, id, encrypted_data, onDownload }: File
                 src={previewUrl} 
                 alt={name}
                 className="max-h-full max-w-full object-contain"
+                crossOrigin="anonymous"
               />
             </div>
           ) : (
