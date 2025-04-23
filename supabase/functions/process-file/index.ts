@@ -50,9 +50,14 @@ serve(async (req) => {
       );
     }
 
+    // Get user ID for activity logging
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const userId = user?.id;
+
     // Process the file based on the action
     switch (action) {
       case "watermark": {
+        // Check if watermark text is provided
         if (!options?.watermarkText) {
           return new Response(
             JSON.stringify({ error: "Watermark text is required" }),
@@ -60,24 +65,26 @@ serve(async (req) => {
           );
         }
 
-        // In a real implementation, you would actually process the image here
-        const processedFile = {
-          ...file,
-          has_watermark: true,
-          watermark_data: {
-            text: options.watermarkText,
-            position: options.position || "center",
-            opacity: options.opacity || 0.5,
-            timestamp: new Date().toISOString()
-          }
+        // For static watermarking - update metadata
+        const watermarkData = {
+          text: options.watermarkText,
+          position: options.position || "center",
+          opacity: options.opacity || 0.5,
+          visible: options.visible !== undefined ? options.visible : true,
+          type: options.dynamic ? "dynamic" : "static",
+          timestamp: new Date().toISOString()
         };
-
+        
+        // For dynamic watermarking, we would actually process the image here
+        // This would involve image manipulation which is beyond this function's scope
+        // In a real implementation, we would use an image processing library
+        
         // Update the file in the database
         const { data: updatedFile, error: updateError } = await supabaseClient
           .from("files")
           .update({
             has_watermark: true,
-            watermark_data: processedFile.watermark_data
+            watermark_data: watermarkData
           })
           .eq("id", fileId)
           .select()
@@ -91,17 +98,20 @@ serve(async (req) => {
         }
 
         // Log activity
-        await supabaseClient
-          .from("activity_logs")
-          .insert({
-            user_id: req.headers.get("X-User-Id"),
-            action: "watermark",
-            resource_id: fileId,
-            resource_type: "file",
-            details: {
-              watermarkText: options.watermarkText
-            }
-          });
+        if (userId) {
+          await supabaseClient
+            .from("activity_logs")
+            .insert({
+              user_id: userId,
+              action: "watermark",
+              resource_id: fileId,
+              resource_type: "file",
+              details: {
+                watermarkText: options.watermarkText,
+                watermarkType: options.dynamic ? "dynamic" : "static"
+              }
+            });
+        }
 
         return new Response(
           JSON.stringify({ success: true, file: updatedFile }),
@@ -110,12 +120,19 @@ serve(async (req) => {
       }
 
       case "masking": {
+        if (!options?.maskingConfig) {
+          return new Response(
+            JSON.stringify({ error: "Masking configuration is required" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+          );
+        }
+        
         // Update the file with masking data
         const { data: updatedFile, error: updateError } = await supabaseClient
           .from("files")
           .update({
             is_masked: true,
-            masking_config: options?.masking_config || {}
+            masking_config: options.maskingConfig
           })
           .eq("id", fileId)
           .select()
@@ -129,17 +146,19 @@ serve(async (req) => {
         }
 
         // Log activity
-        await supabaseClient
-          .from("activity_logs")
-          .insert({
-            user_id: req.headers.get("X-User-Id"),
-            action: "masking",
-            resource_id: fileId,
-            resource_type: "file",
-            details: {
-              masking_config: options?.masking_config
-            }
-          });
+        if (userId) {
+          await supabaseClient
+            .from("activity_logs")
+            .insert({
+              user_id: userId,
+              action: "masking",
+              resource_id: fileId,
+              resource_type: "file",
+              details: {
+                masking_config: options.maskingConfig
+              }
+            });
+        }
 
         return new Response(
           JSON.stringify({ success: true, file: updatedFile }),
@@ -182,17 +201,19 @@ serve(async (req) => {
         }
 
         // Log activity
-        await supabaseClient
-          .from("activity_logs")
-          .insert({
-            user_id: req.headers.get("X-User-Id"),
-            action: "shared",
-            resource_id: fileId,
-            resource_type: "file",
-            details: {
-              shared_with: options.shareWith
-            }
-          });
+        if (userId) {
+          await supabaseClient
+            .from("activity_logs")
+            .insert({
+              user_id: userId,
+              action: "shared",
+              resource_id: fileId,
+              resource_type: "file",
+              details: {
+                shared_with: options.shareWith
+              }
+            });
+        }
 
         return new Response(
           JSON.stringify({ success: true, file: updatedFile }),
