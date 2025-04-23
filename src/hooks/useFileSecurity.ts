@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -110,7 +109,8 @@ export const useFileSecurity = () => {
           
         if (fetchError) throw fetchError;
         
-        if (!file.is_encrypted) {
+        // Check if the file has encryption_key set
+        if (!file.encryption_key) {
           throw new Error('File is not encrypted');
         }
         
